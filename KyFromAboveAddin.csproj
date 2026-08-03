@@ -91,6 +91,17 @@
     </Reference>
   </ItemGroup>
 
+  <!--
+    Authenticode-sign the compiled assembly (SHA-256) BEFORE the Esri targets
+    package it into the .esriAddinX, so the add-in is digitally signed.
+    Disable with:  dotnet build -p:SignAddin=false
+    Setup (one-time): powershell -ExecutionPolicy Bypass -File tools\setup-code-signing.ps1
+  -->
+  <Target Name="AuthenticodeSignAddin" BeforeTargets="ArcGISInstallOutput"
+          Condition=" '$(SignAddin)' != 'false' AND Exists('$(MSBuildThisFileDirectory)tools\sign.ps1') ">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)tools\sign.ps1&quot; &quot;$(TargetPath)&quot;" />
+  </Target>
+
   <Import Project="C:\Program Files\ArcGIS\Pro\bin\Esri.ProApp.SDK.Desktop.targets"
           Condition="Exists('C:\Program Files\ArcGIS\Pro\bin\Esri.ProApp.SDK.Desktop.targets') AND !Exists('Esri.ArcGISPro.Extensions.targets')" />
 
