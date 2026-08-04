@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
+    <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <Platforms>x64</Platforms>
@@ -98,7 +99,7 @@
     Setup (one-time): powershell -ExecutionPolicy Bypass -File tools\setup-code-signing.ps1
   -->
   <Target Name="AuthenticodeSignAddin" BeforeTargets="ArcGISInstallOutput"
-          Condition=" '$(SignAddin)' != 'false' AND Exists('$(MSBuildThisFileDirectory)tools\sign.ps1') ">
+          Condition=" '$(SignAddin)' == 'true' AND Exists('$(MSBuildThisFileDirectory)tools\sign.ps1') ">
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)tools\sign.ps1&quot; &quot;$(TargetPath)&quot;" />
   </Target>
 

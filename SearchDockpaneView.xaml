@@ -55,7 +55,18 @@
                 <Button Content="Draw Line" Command="{Binding DrawLineAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
                 <Button Content="Draw Polygon" Command="{Binding DrawPolygonAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
             </WrapPanel>
-            <Button Content="Clear AOI" Command="{Binding ClearAoiCommand}" Padding="6,2" HorizontalAlignment="Left" Margin="0,0,0,2"/>
+            <WrapPanel Orientation="Horizontal" Margin="0,2,0,2" Width="Auto">
+                <TextBlock Text="Layer:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <ComboBox ItemsSource="{Binding MapLayers}" DisplayMemberPath="DisplayName"
+                          SelectedItem="{Binding SelectedLayer}" MinWidth="160" Margin="0,0,2,0"/>
+                <Button Content="Refresh" Command="{Binding RefreshLayersCommand}" Padding="6,2" Margin="0,0,2,0"/>
+                <Button Content="Use Layer" Command="{Binding UseLayerAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
+            </WrapPanel>
+            <WrapPanel Orientation="Horizontal" Margin="0,2,0,2">
+                <Button Content="Mosaic All to Map" Command="{Binding MosaicAllCommand}" Padding="6,2" Margin="0,0,2,0" FontWeight="SemiBold"/>
+                <CheckBox Content="Build overviews" IsChecked="{Binding BuildOverviews}" VerticalAlignment="Center" Margin="4,0,2,0"/>
+                <Button Content="Clear AOI" Command="{Binding ClearAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
+            </WrapPanel>
             <TextBlock Text="{Binding AoiText}" TextTrimming="CharacterEllipsis" FontStyle="Italic" Opacity="0.8"/>
         </StackPanel>
 
