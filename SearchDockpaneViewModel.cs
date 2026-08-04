@@ -36,10 +36,13 @@ namespace KyFromAbove
             Collections = new ObservableCollection<CollectionCheckViewModel>();
             Results = new ObservableCollection<ResultItemViewModel>();
             StatusMessage = "Load collections to begin.";
-            UseCurrentExtentCommand = new RelayCommand(async () => await OnUseCurrentExtentAsync(), () => !IsSearchBusy);
             SearchCommand = new RelayCommand(async () => await OnSearchAsync(reset: true), () => !IsSearchBusy);
             NextPageCommand = new RelayCommand(async () => await OnSearchAsync(reset: false), () => !IsSearchBusy && !string.IsNullOrEmpty(_nextPageUrl));
             LoadCollectionsCommand = new RelayCommand(async () => await OnLoadCollectionsAsync(), () => !IsSearchBusy);
+            DrawPointAoiCommand = new RelayCommand(async () => await OnDrawAoiAsync(DrawPointAoiTool.ToolId), () => !IsSearchBusy);
+            DrawLineAoiCommand = new RelayCommand(async () => await OnDrawAoiAsync(DrawLineAoiTool.ToolId), () => !IsSearchBusy);
+            DrawPolygonAoiCommand = new RelayCommand(async () => await OnDrawAoiAsync(DrawPolygonAoiTool.ToolId), () => !IsSearchBusy);
+            ClearAoiCommand = new RelayCommand(OnClearAoi, () => !IsSearchBusy);
         }
 
         /// <summary>Show the DockPane.</summary>
@@ -106,8 +109,8 @@ namespace KyFromAbove
             set => SetProperty(ref _aoiText, value, () => AoiText);
         }
 
-        // Bounding box in lon/lat (WGS84), set via "Use current extent".
-        private double[] _bbox;
+        // GeoJSON geometry string (lon/lat) set via a Draw* AOI tool; used as the STAC 'intersects' AOI.
+        private string _intersectsGeoJson;
 
         private int _resultCount;
         public int ResultCount
@@ -125,10 +128,13 @@ namespace KyFromAbove
 
         public bool HasNextPage => !string.IsNullOrEmpty(_nextPageUrl);
 
-        public ICommand UseCurrentExtentCommand { get; }
         public ICommand SearchCommand { get; }
         public ICommand NextPageCommand { get; }
         public ICommand LoadCollectionsCommand { get; }
+        public ICommand DrawPointAoiCommand { get; }
+        public ICommand DrawLineAoiCommand { get; }
+        public ICommand DrawPolygonAoiCommand { get; }
+        public ICommand ClearAoiCommand { get; }
 
         #endregion
 
@@ -155,34 +161,55 @@ namespace KyFromAbove
             finally { IsSearchBusy = false; }
         }
 
-        private async Task OnUseCurrentExtentAsync()
+        /// <summary>
+        /// Capture a geometry drawn by a Draw* AOI tool (already projected to WGS84),
+        /// convert it to GeoJSON, and store it as the search 'intersects' AOI.
+        /// </summary>
+        public void SetAoi(Geometry geometry)
         {
+            if (geometry == null) return;
             try
             {
-                double[] bbox = await QueuedTask.Run(() =>
+                _intersectsGeoJson = Services.GeoJsonConverter.ToGeoJsonGeometry(geometry);
+                var e = geometry.Extent;
+                string label;
+                switch (geometry)
                 {
-                    var mv = MapView.Active;
-                    if (mv == null) return null;
-                    var ext = mv.Extent;
-                    if (ext == null) return null;
-                    // Project the current extent to WGS84 (STAC bbox is lon/lat).
-                    var wgs = GeometryEngine.Instance.Project(ext, SpatialReferences.WGS84) as Envelope;
-                    if (wgs == null) return null;
-                    return new[] { wgs.XMin, wgs.YMin, wgs.XMax, wgs.YMax };
-                });
-                if (bbox == null)
-                {
-                    StatusMessage = "Open a map and set an extent first.";
-                    return;
+                    case MapPoint _:
+                        label = $"Point [{e.XMin:F4}, {e.YMin:F4}]";
+                        break;
+                    case Polyline _:
+                        label = $"Line [{e.XMin:F4}, {e.YMin:F4}, {e.XMax:F4}, {e.YMax:F4}]";
+                        break;
+                    default:
+                        label = $"Polygon [{e.XMin:F4}, {e.YMin:F4}, {e.XMax:F4}, {e.YMax:F4}]";
+                        break;
                 }
-                _bbox = bbox;
-                AoiText = $"[{bbox[0]:F4}, {bbox[1]:F4}, {bbox[2]:F4}, {bbox[3]:F4}]";
-                StatusMessage = "AOI set to current map extent.";
+                AoiText = label;
+                StatusMessage = "AOI set from drawn geometry.";
             }
             catch (Exception ex)
             {
-                StatusMessage = "Could not read extent: " + ex.Message;
+                StatusMessage = "Could not set AOI: " + ex.Message;
             }
+        }
+
+        /// <summary>Activate the requested Draw* AOI tool.</summary>
+        private async Task OnDrawAoiAsync(string toolId)
+        {
+            if (MapView.Active == null)
+            {
+                StatusMessage = "Open a map view first.";
+                return;
+            }
+            await FrameworkApplication.SetCurrentToolAsync(toolId);
+        }
+
+        private void OnClearAoi()
+        {
+            _intersectsGeoJson = null;
+            AoiText = null;
+            StatusMessage = "AOI cleared.";
         }
 
         private async Task OnSearchAsync(bool reset)
@@ -205,7 +232,7 @@ namespace KyFromAbove
                     var query = new StacSearchQuery
                     {
                         Collections = Collections.Where(c => c.IsChecked).Select(c => c.Id).ToList(),
-                        Bbox = _bbox,
+                        IntersectsGeoJson = _intersectsGeoJson,
                         StartDate = StartDate,
                         EndDate = EndDate,
                         FreeText = FreeText,

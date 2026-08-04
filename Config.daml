@@ -31,11 +31,26 @@
       <controls>
         <button id="KyFromAbove_ShowSearchDockpane" caption="STAC Search"
                 className="ShowSearchDockpaneButton" loadOnClick="true" keytip="B1"
-                smallImage="GenericSearch16" largeImage="GenericSearch32">
+                smallImage="Images\AddInDesktop16.png" largeImage="Images\AddInDesktop32.png">
           <tooltip heading="STAC Search">
             Open the KyFromAbove STAC search pane to find and download imagery, DEM, and LiDAR data.<disabledText />
           </tooltip>
         </button>
+        <tool id="KyFromAbove_DrawPointAoiTool" caption="Draw Point AOI" className="DrawPointAoiTool"
+              loadOnClick="true" condition="esri_mapping_mapPane"
+              smallImage="GenericPoint16" largeImage="GenericPoint32">
+          <tooltip heading="Draw Point AOI">Draw a point to use as the STAC search 'intersects' AOI.<disabledText /></tooltip>
+        </tool>
+        <tool id="KyFromAbove_DrawLineAoiTool" caption="Draw Line AOI" className="DrawLineAoiTool"
+              loadOnClick="true" condition="esri_mapping_mapPane"
+              smallImage="GenericLine16" largeImage="GenericLine32">
+          <tooltip heading="Draw Line AOI">Draw a line to use as the STAC search 'intersects' AOI.<disabledText /></tooltip>
+        </tool>
+        <tool id="KyFromAbove_DrawPolygonAoiTool" caption="Draw Polygon AOI" className="DrawPolygonAoiTool"
+              loadOnClick="true" condition="esri_mapping_mapPane"
+              smallImage="GenericPolygon16" largeImage="GenericPolygon32">
+          <tooltip heading="Draw Polygon AOI">Draw a polygon to use as the STAC search 'intersects' AOI.<disabledText /></tooltip>
+        </tool>
       </controls>
       <dockPanes>
         <dockPane id="KyFromAbove_SearchDockpane" caption="KyFromAbove STAC"

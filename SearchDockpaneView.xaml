@@ -49,8 +49,13 @@
 
         <!-- AOI -->
         <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,4">
-            <Button Content="Use current map extent as AOI" Command="{Binding UseCurrentExtentCommand}"
-                    Padding="4,2" HorizontalAlignment="Stretch" Margin="0,0,0,2"/>
+            <TextBlock Text="Area of interest" FontWeight="SemiBold" Margin="0,0,0,2"/>
+            <WrapPanel Orientation="Horizontal" Margin="0,0,0,2">
+                <Button Content="Draw Point" Command="{Binding DrawPointAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
+                <Button Content="Draw Line" Command="{Binding DrawLineAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
+                <Button Content="Draw Polygon" Command="{Binding DrawPolygonAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
+            </WrapPanel>
+            <Button Content="Clear AOI" Command="{Binding ClearAoiCommand}" Padding="6,2" HorizontalAlignment="Left" Margin="0,0,0,2"/>
             <TextBlock Text="{Binding AoiText}" TextTrimming="CharacterEllipsis" FontStyle="Italic" Opacity="0.8"/>
         </StackPanel>
 

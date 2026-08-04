@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +32,12 @@ namespace KyFromAbove.Stac
         public List<string> Ids { get; set; }
         /// <summary>Optional free-text query string (q parameter, if supported).</summary>
         public string FreeText { get; set; }
+        /// <summary>
+        /// Optional GeoJSON geometry string (lon/lat, CRS84) to use with the STAC
+        /// 'intersects' parameter. When set, the search is performed via POST /search.
+        /// Mutually exclusive with Bbox (intersects takes precedence).
+        /// </summary>
+        public string IntersectsGeoJson { get; set; }
     }
 
     /// <summary>
@@ -71,9 +78,12 @@ namespace KyFromAbove.Stac
             return data?.Collections ?? new List<StacCollection>();
         }
 
-        /// <summary>Run an item search via GET /search.</summary>
+        /// <summary>Run an item search. Uses POST /search with 'intersects' when a
+        /// GeoJSON geometry is provided; otherwise GET /search with bbox.</summary>
         public async Task<StacItemCollection> SearchAsync(StacSearchQuery q, CancellationToken ct = default)
         {
+            if (!string.IsNullOrWhiteSpace(q.IntersectsGeoJson))
+                return await SearchPostAsync(q, ct).ConfigureAwait(false);
             var url = BuildSearchUrl(q);
             return await GetItemCollectionAsync(url, ct).ConfigureAwait(false);
         }
@@ -82,6 +92,64 @@ namespace KyFromAbove.Stac
         public async Task<StacItemCollection> GetPageAsync(string fullUrl, CancellationToken ct = default)
         {
             return await GetItemCollectionAsync(fullUrl, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>POST /search with a JSON body (used when an 'intersects' geometry is set).</summary>
+        private async Task<StacItemCollection> SearchPostAsync(StacSearchQuery q, CancellationToken ct)
+        {
+            using var ms = new MemoryStream();
+            using (var writer = new System.Text.Json.Utf8JsonWriter(ms))
+            {
+                writer.WriteStartObject();
+                if (q.Collections != null && q.Collections.Count > 0)
+                {
+                    writer.WritePropertyName("collections");
+                    writer.WriteStartArray();
+                    foreach (var c in q.Collections) writer.WriteStringValue(c);
+                    writer.WriteEndArray();
+                }
+                if (!string.IsNullOrWhiteSpace(q.IntersectsGeoJson))
+                {
+                    writer.WritePropertyName("intersects");
+                    using var doc = JsonDocument.Parse(q.IntersectsGeoJson);
+                    doc.RootElement.WriteTo(writer);
+                }
+                if (q.Ids != null && q.Ids.Count > 0)
+                {
+                    writer.WritePropertyName("ids");
+                    writer.WriteStartArray();
+                    foreach (var id in q.Ids) writer.WriteStringValue(id);
+                    writer.WriteEndArray();
+                }
+                if (q.StartDate.HasValue || q.EndDate.HasValue)
+                    writer.WriteString("datetime", BuildDatetime(q.StartDate, q.EndDate));
+                if (!string.IsNullOrWhiteSpace(q.FreeText))
+                {
+                    writer.WritePropertyName("q");
+                    writer.WriteStartArray();
+                    writer.WriteStringValue(q.FreeText);
+                    writer.WriteEndArray();
+                }
+                writer.WriteNumber("limit", Clamp(q.Limit, 1, 10000));
+                writer.WriteEndObject();
+                writer.Flush();
+            }
+
+            using var content = new ByteArrayContent(ms.ToArray());
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/geo+json");
+            using var resp = await _http.PostAsync(BaseUri.TrimEnd('/') + "/search", content, ct).ConfigureAwait(false);
+            await EnsureSuccessWithBodyAsync(resp, ct).ConfigureAwait(false);
+            await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            return await JsonSerializer.DeserializeAsync<StacItemCollection>(stream, _json, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>Throw with the response body included so 4xx errors are self-explanatory.</summary>
+        private static async Task EnsureSuccessWithBodyAsync(HttpResponseMessage resp, CancellationToken ct)
+        {
+            if (resp.IsSuccessStatusCode) return;
+            string body = null;
+            try { body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false); } catch { /* ignore */ }
+            throw new HttpRequestException($"STAC API {(int)resp.StatusCode} {resp.StatusCode}: {body}");
         }
 
         /// <summary>Fetch items for a specific collection (optionally paged).</summary>
@@ -124,7 +192,7 @@ namespace KyFromAbove.Stac
         private async Task<StacItemCollection> GetItemCollectionAsync(string url, CancellationToken ct)
         {
             using var resp = await _http.GetAsync(url, ct).ConfigureAwait(false);
-            resp.EnsureSuccessStatusCode();
+            await EnsureSuccessWithBodyAsync(resp, ct).ConfigureAwait(false);
             await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
             return await JsonSerializer.DeserializeAsync<StacItemCollection>(stream, _json, ct).ConfigureAwait(false);
         }
