@@ -4,7 +4,7 @@
 using ArcGIS.Desktop.Framework.Contracts;
 using ArcGIS.Desktop.Mapping;
 
-namespace KyFromAbove
+namespace KyFromAboveSTAC
 {
     /// <summary>A feature layer from the active map, shown in the Select-Layer dropdown.</summary>
     public class LayerViewModel : PropertyChangedBase

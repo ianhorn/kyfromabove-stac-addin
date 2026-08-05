@@ -6,7 +6,7 @@
  */
 using System.Windows.Controls;
 
-namespace KyFromAbove
+namespace KyFromAboveSTAC
 {
     /// <summary>
     /// Interaction logic for SearchDockpaneView.xaml

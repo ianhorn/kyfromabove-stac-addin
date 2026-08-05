@@ -12,9 +12,9 @@ using ArcGIS.Core.Geometry;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Mapping;
 using ArcGIS.Desktop.Core.Geoprocessing;
-using KyFromAbove.Stac;
+using KyFromAboveSTAC.Stac;
 
-namespace KyFromAbove.Services
+namespace KyFromAboveSTAC.Services
 {
     /// <summary>Map integration helpers for STAC items.</summary>
     public class MapService
@@ -72,7 +72,7 @@ namespace KyFromAbove.Services
             var list = items?.Where(i => i != null).ToList() ?? new List<StacItem>();
             if (list.Count == 0) return false;
 
-            var tempDir = Path.Combine(Path.GetTempPath(), "KyFromAbove");
+            var tempDir = Path.Combine(Path.GetTempPath(), "KyFromAbove-STAC");
             Directory.CreateDirectory(tempDir);
             var tempFile = Path.Combine(tempDir, $"footprints_{DateTime.Now:yyyyMMdd_HHmmss}.geojson");
 

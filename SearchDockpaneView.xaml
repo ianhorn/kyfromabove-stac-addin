@@ -1,4 +1,4 @@
-<UserControl x:Class="KyFromAbove.SearchDockpaneView"
+<UserControl x:Class="KyFromAboveSTAC.SearchDockpaneView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -185,7 +185,7 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
                 <TextBlock Text="Download to:" VerticalAlignment="Center" Margin="0,0,4,0"/>
                 <TextBox Text="{Binding DownloadFolder}" Width="200" VerticalContentAlignment="Center"
-                         ToolTip="Folder where downloaded assets are saved (%TEMP%\KyFromAbove by default)"/>
+                ToolTip="Folder where downloaded assets are saved (%TEMP%\KyFromAbove-STAC by default)"/>
                 <Button Content="Browse..." Command="{Binding BrowseDownloadFolderCommand}" Padding="6,1" Margin="2,0,4,0"/>
                 <TextBlock Text="threads:" VerticalAlignment="Center" Margin="0,0,4,0"/>
                 <ComboBox ItemsSource="{Binding CoreOptions}" SelectedItem="{Binding DownloadConcurrency, Mode=TwoWay}" Width="80" VerticalContentAlignment="Center" ToolTip="Select number of parallel downloads (cores/threads)."/>

@@ -1,6 +1,6 @@
 #requires -Version 5.1
 <#
-  One-time, INTERACTIVE: trusts the self-signed "KyFromAbove Dev" code-signing
+  One-time, INTERACTIVE: trusts the self-signed "KyFromAbove-STAC Dev" code-signing
   certificate on the CURRENT machine so ArcGIS Pro / Windows accept add-ins
   signed with it WITHOUT an "unknown publisher" warning.
 

@@ -22,9 +22,9 @@ using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Mapping;
-using KyFromAbove.Stac;
+using KyFromAboveSTAC.Stac;
 
-namespace KyFromAbove
+namespace KyFromAboveSTAC
 {
     internal class SearchDockpaneViewModel : DockPane
     {
@@ -107,7 +107,7 @@ namespace KyFromAbove
                       "You can select and download them for external processing. If you need to work with point-clouds inside ArcGIS Pro, " +
                       "import them via the appropriate geoprocessing tools or use a point-cloud/ LAS dataset workflow.\n\n" +
                       "This tool supports downloading both raster (COG) and point-cloud assets.";
-            System.Windows.MessageBox.Show(msg, "KyFromAbove: Download help", MessageBoxButton.OK, MessageBoxImage.Information);
+            System.Windows.MessageBox.Show(msg, "KyFromAbove-STAC: Download help", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
         }
 
         /// <summary>Show the DockPane.</summary>

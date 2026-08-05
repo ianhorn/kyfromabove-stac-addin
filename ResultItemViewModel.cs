@@ -6,9 +6,9 @@ using System.IO;
 using System.Windows.Input;
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
-using KyFromAbove.Stac;
+using KyFromAboveSTAC.Stac;
 
-namespace KyFromAbove
+namespace KyFromAboveSTAC
 {
     /// <summary>Represents one STAC item row in the search results.</summary>
     public class ResultItemViewModel : PropertyChangedBase
@@ -111,7 +111,7 @@ namespace KyFromAbove
                 else
                 {
                     Status = "Failed to add footprint.";
-                    System.Windows.MessageBox.Show("Could not add the footprint to the map. Check ArcGIS Pro messages or ensure GeoJSON support is available.", "KyFromAbove: Footprint", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    System.Windows.MessageBox.Show("Could not add the footprint to the map. Check ArcGIS Pro messages or ensure GeoJSON support is available.", "KyFromAbove-STAC: Footprint", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
                 }
             }
             catch (Exception ex)
@@ -166,7 +166,7 @@ namespace KyFromAbove
 
             try
             {
-                var tempDir = Path.Combine(Path.GetTempPath(), "KyFromAbove", "thumbs");
+                var tempDir = Path.Combine(Path.GetTempPath(), "KyFromAbove-STAC", "thumbs");
                 Directory.CreateDirectory(tempDir);
                 var safeName = Item.Id;
                 foreach (var ch in System.IO.Path.GetInvalidFileNameChars()) safeName = safeName.Replace(ch, '_');

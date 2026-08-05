@@ -13,7 +13,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KyFromAbove.Stac
+namespace KyFromAboveSTAC.Stac
 {
     /// <summary>Search parameters for a STAC item search.</summary>
     public class StacSearchQuery

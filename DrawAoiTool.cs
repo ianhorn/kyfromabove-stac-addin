@@ -12,7 +12,7 @@ using ArcGIS.Core.Geometry;
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Mapping;
 
-namespace KyFromAbove
+namespace KyFromAboveSTAC
 {
     internal class DrawAoiToolBase : MapTool
     {

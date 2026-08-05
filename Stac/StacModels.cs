@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace KyFromAbove.Stac
+namespace KyFromAboveSTAC.Stac
 {
     /// <summary>A STAC Link (pagination, self, parent, etc.).</summary>
     public class StacLink

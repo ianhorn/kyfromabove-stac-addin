@@ -5,7 +5,7 @@
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
 
-namespace KyFromAbove
+namespace KyFromAboveSTAC
 {
     /// <summary>
     /// Add-in module. Provides access to shared services (e.g. the STAC client).

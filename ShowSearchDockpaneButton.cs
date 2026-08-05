@@ -3,7 +3,7 @@
  */
 using ArcGIS.Desktop.Framework.Contracts;
 
-namespace KyFromAbove
+namespace KyFromAboveSTAC
 {
     /// <summary>
     /// Button implementation to show the DockPane (className in Config.daml).
