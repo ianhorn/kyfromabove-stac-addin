@@ -41,6 +41,7 @@ namespace KyFromAbove
             _client = Module1.Current.StacClient;
             Collections = new ObservableCollection<CollectionCheckViewModel>();
             Results = new ObservableCollection<ResultItemViewModel>();
+            Results.CollectionChanged += Results_CollectionChanged;
             StatusMessage = "Load collections to begin.";
             SearchCommand = new RelayCommand(async () => await OnSearchAsync(reset: true), () => !IsSearchBusy);
             NextPageCommand = new RelayCommand(async () => await OnSearchAsync(reset: false), () => !IsSearchBusy && !string.IsNullOrEmpty(_nextPageUrl));
@@ -64,6 +65,40 @@ namespace KyFromAbove
             Directory.CreateDirectory(DownloadFolder);
             MapLayers = new ObservableCollection<LayerViewModel>();
             _ = OnRefreshLayersAsync(); // populate on load
+        }
+
+        private void Results_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.OldItems != null)
+            {
+                foreach (var oi in e.OldItems)
+                {
+                    if (oi is System.ComponentModel.INotifyPropertyChanged ipc)
+                        ipc.PropertyChanged -= ResultItem_PropertyChanged;
+                }
+            }
+            if (e.NewItems != null)
+            {
+                foreach (var ni in e.NewItems)
+                {
+                    if (ni is System.ComponentModel.INotifyPropertyChanged ipc)
+                        ipc.PropertyChanged += ResultItem_PropertyChanged;
+                }
+            }
+            UpdateHasSelection();
+        }
+
+        private void ResultItem_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ResultItemViewModel.IsSelected))
+            {
+                UpdateHasSelection();
+            }
+        }
+
+        private void UpdateHasSelection()
+        {
+            HasSelection = Results.Any(r => r.IsSelected);
         }
 
         private void OnShowHelp()
@@ -168,6 +203,13 @@ namespace KyFromAbove
             set => SetProperty(ref _resultCount, value, () => ResultCount);
         }
 
+        private bool _hasSelection;
+        public bool HasSelection
+        {
+            get => _hasSelection;
+            private set => SetProperty(ref _hasSelection, value, () => HasSelection);
+        }
+
         private int? _totalMatched;
         public int? TotalMatched
         {
@@ -207,6 +249,8 @@ namespace KyFromAbove
             get => _downloadConcurrency;
             set => SetProperty(ref _downloadConcurrency, Math.Max(1, value), () => DownloadConcurrency);
         }
+
+        public int[] CoreOptions => new int[] { 1, 2, 4, 8, Math.Max(1, Environment.ProcessorCount) };
 
         private bool _downloadPerItemFolder;
         /// <summary>If true, each item downloads into its own subfolder under DownloadFolder. Off by default (flat into DownloadFolder).</summary>
