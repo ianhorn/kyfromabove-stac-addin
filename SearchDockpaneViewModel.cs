@@ -66,6 +66,15 @@ namespace KyFromAbove
             _ = OnRefreshLayersAsync(); // populate on load
         }
 
+        private void OnShowHelp()
+        {
+            var msg = "Point-cloud assets (e.g. .laz, .las) cannot be added directly to the map from this UI.\n\n" +
+                      "You can select and download them for external processing. If you need to work with point-clouds inside ArcGIS Pro, " +
+                      "import them via the appropriate geoprocessing tools or use a point-cloud/ LAS dataset workflow.\n\n" +
+                      "This tool supports downloading both raster (COG) and point-cloud assets.";
+            System.Windows.MessageBox.Show(msg, "KyFromAbove: Download help", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
         /// <summary>Show the DockPane.</summary>
         internal static void Show()
         {
@@ -166,6 +175,13 @@ namespace KyFromAbove
             set => SetProperty(ref _totalMatched, value, () => TotalMatched);
         }
 
+        private bool _hasPointCloudResults;
+        public bool HasPointCloudResults
+        {
+            get => _hasPointCloudResults;
+            private set => SetProperty(ref _hasPointCloudResults, value, () => HasPointCloudResults);
+        }
+
                 private bool _buildOverviews = true;
         /// <summary>If checked (default), the mosaic's overviews are defined + built after the rasters are added.</summary>
         public bool BuildOverviews
@@ -173,6 +189,8 @@ namespace KyFromAbove
             get => _buildOverviews;
             set => SetProperty(ref _buildOverviews, value, () => BuildOverviews);
         }
+
+        public ICommand ShowHelpCommand { get; }
 
         private string _downloadFolder;
         /// <summary>Local folder where selected assets are downloaded. Defaults to &lt;project_dir&gt;\downloads.</summary>
@@ -424,13 +442,14 @@ namespace KyFromAbove
             try { Directory.CreateDirectory(DownloadFolder); }
             catch (Exception ex) { StatusMessage = "Bad download folder: " + ex.Message; return; }
 
-            // Selected results; fall back to all raster results if nothing is explicitly selected.
+            // Selected results; fall back to all downloadable results if nothing is explicitly selected.
+            // Downloadable includes raster COGs and point-cloud LAZ/LAS assets (we don't try to add point-clouds to the map).
             var toDownload = Results
-                .Where(r => r.IsSelected && r.DataAsset != null && IsRasterAsset(r.DataAsset))
+                .Where(r => r.IsSelected && r.DataAsset != null && IsDownloadableAsset(r.DataAsset))
                 .ToList();
             if (toDownload.Count == 0)
-                toDownload = Results.Where(r => r.DataAsset != null && IsRasterAsset(r.DataAsset)).ToList();
-            if (toDownload.Count == 0) { StatusMessage = "No raster results to download."; return; }
+                toDownload = Results.Where(r => r.DataAsset != null && IsDownloadableAsset(r.DataAsset)).ToList();
+            if (toDownload.Count == 0) { StatusMessage = "No downloadable results to download."; return; }
 
             var concurrency = Math.Max(1, DownloadConcurrency);
             var dl = new Services.DownloadService(Module1.Current.StacClient);
@@ -452,13 +471,18 @@ namespace KyFromAbove
                     var item = r;
                     var destDir = DownloadPerItemFolder ? Path.Combine(DownloadFolder, item.Item.Id) : DownloadFolder;
                     var fname = Services.DownloadService.SuggestFileName(item.DataAsset, item.Item);
-                    var dest = Path.Combine(destDir, fname);
-
-                    // If flat download, avoid filename collisions by prefixing with item id.
+                    // If flat download, avoid filename collisions by prefixing with item id,
+                    // but don't double-prefix if the suggested name already starts with the id.
                     if (!DownloadPerItemFolder && !string.IsNullOrWhiteSpace(item.Item.Id))
                     {
-                        dest = Path.Combine(destDir, item.Item.Id + "_" + fname);
+                        var prefix = item.Item.Id + "_";
+                        if (!fname.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(fname, item.Item.Id, StringComparison.OrdinalIgnoreCase))
+                        {
+                            fname = prefix + fname;
+                        }
                     }
+                    var dest = Path.Combine(destDir, fname);
                     var prog = new Progress<Services.DownloadProgress>(p =>
                     {
                         if (p.TotalBytes > 0)
@@ -509,7 +533,15 @@ namespace KyFromAbove
             try
             {
                 bool ok = await Services.MapService.AddFootprintsLayerAsync(Results.Select(r => r.Item));
-                StatusMessage = ok ? "Footprints added to map." : "Failed to add footprints.";
+                if (ok)
+                {
+                    StatusMessage = "Footprints added to map.";
+                }
+                else
+                {
+                    StatusMessage = "Failed to add footprints. See ArcGIS Pro messages for details.";
+                    System.Windows.MessageBox.Show("Could not add footprints to the map. Check the ArcGIS Pro messages window for details or ensure GeoJSON support is available.", "KyFromAbove: Footprints", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
             }
             catch (Exception ex)
             {
@@ -531,6 +563,36 @@ namespace KyFromAbove
             var t = a.Type ?? "";
             return t.IndexOf("tiff", System.StringComparison.OrdinalIgnoreCase) >= 0
                 || t.IndexOf("image", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>Return true if the asset is downloadable by the user (raster or point-cloud).</summary>
+        private static bool IsDownloadableAsset(Stac.StacAsset a)
+        {
+            var ext = System.IO.Path.GetExtension(a.Href ?? "").ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(ext))
+            {
+                var t = a.Type ?? "";
+                if (t.IndexOf("tiff", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    || t.IndexOf("image", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+                if (t.IndexOf("las", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    || t.IndexOf("lidar", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+                return false;
+            }
+
+            // Allow common raster extensions
+            if (ext == ".tif" || ext == ".tiff" || ext == ".vrt" || ext == ".img" || ext == ".dem") return true;
+            // Allow common point-cloud extensions
+            if (ext == ".laz" || ext == ".las" || ext == ".copc" || ext == ".zlidar" || ext == ".zlas") return true;
+            return false;
+        }
+
+        private static bool IsPointCloudAsset(Stac.StacAsset a)
+        {
+            var ext = System.IO.Path.GetExtension(a.Href ?? "").ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(ext)) return false;
+            return ext == ".laz" || ext == ".las" || ext == ".copc" || ext == ".zlidar" || ext == ".zlas";
         }
 
         /// <summary>Populate the layer dropdown with feature layers from the active map.</summary>
@@ -657,6 +719,9 @@ namespace KyFromAbove
                         Results.Add(new ResultItemViewModel(f, colVM?.Collection));
                     }
                 }
+
+                // Indicate whether any results contain point-cloud assets (for conditional UI tips)
+                HasPointCloudResults = Results.Any(r => IsPointCloudAsset(r.DataAsset));
 
                 ResultCount = Results.Count;
                 TotalMatched = page?.NumberMatched;

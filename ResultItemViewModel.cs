@@ -104,7 +104,15 @@ namespace KyFromAbove
             try
             {
                 var ok = await Services.MapService.AddFootprintsLayerAsync(new[] { Item });
-                Status = ok ? "Footprint added." : "Failed to add footprint.";
+                if (ok)
+                {
+                    Status = "Footprint added.";
+                }
+                else
+                {
+                    Status = "Failed to add footprint.";
+                    System.Windows.MessageBox.Show("Could not add the footprint to the map. Check ArcGIS Pro messages or ensure GeoJSON support is available.", "KyFromAbove: Footprint", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                }
             }
             catch (Exception ex)
             {
