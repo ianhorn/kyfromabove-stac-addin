@@ -2,6 +2,7 @@
  * Per-result view model for a single STAC item shown in the results list.
  */
 using System;
+using System.IO;
 using System.Windows.Input;
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
@@ -16,6 +17,7 @@ namespace KyFromAbove
         private bool _isDownloading;
         private double _downloadProgress;
         private string _status;
+        private string _thumbnailLocalPath;
 
         public ResultItemViewModel(StacItem item, StacCollection collection)
         {
@@ -26,6 +28,7 @@ namespace KyFromAbove
             AddToMapCommand = new RelayCommand(async () => await OnAddToMapAsync(), () => !IsDownloading);
             DownloadCommand = new RelayCommand(async () => await OnDownloadAsync(), () => !IsDownloading);
             ZoomToCommand = new RelayCommand(async () => await OnZoomToAsync(), () => !IsDownloading);
+            ShowFootprintCommand = new RelayCommand(async () => await OnShowFootprintAsync(), () => !IsDownloading);
 
             // Display text
             TitleText = item.Id;
@@ -33,6 +36,7 @@ namespace KyFromAbove
                                   item.Properties?.EndDatetime);
             DataAsset = item.GetDataAsset();
             ThumbnailUrl = item.GetThumbnailAsset()?.Href;
+            _ = EnsureThumbnailAsync();
         }
 
         public StacItem Item { get; }
@@ -40,6 +44,11 @@ namespace KyFromAbove
         public string CollectionTitle { get; }
         public StacAsset DataAsset { get; }
         public string ThumbnailUrl { get; }
+        public string ThumbnailLocalPath
+        {
+            get => _thumbnailLocalPath;
+            private set => SetProperty(ref _thumbnailLocalPath, value, () => ThumbnailLocalPath);
+        }
         public string TitleText { get; }
         public string DateText { get; }
 
@@ -70,6 +79,7 @@ namespace KyFromAbove
         public ICommand AddToMapCommand { get; }
         public ICommand DownloadCommand { get; }
         public ICommand ZoomToCommand { get; }
+        public ICommand ShowFootprintCommand { get; }
 
         private async System.Threading.Tasks.Task OnAddToMapAsync()
         {
@@ -85,6 +95,26 @@ namespace KyFromAbove
 
         private async System.Threading.Tasks.Task OnZoomToAsync()
         {
+            await Services.MapService.ZoomToItemAsync(Item);
+        }
+
+        private async System.Threading.Tasks.Task OnShowFootprintAsync()
+        {
+            IsDownloading = true; Status = "Adding footprint to map...";
+            try
+            {
+                var ok = await Services.MapService.AddFootprintsLayerAsync(new[] { Item });
+                Status = ok ? "Footprint added." : "Failed to add footprint.";
+            }
+            catch (Exception ex)
+            {
+                Status = "Footprint failed: " + ex.Message;
+            }
+            finally
+            {
+                IsDownloading = false;
+            }
+            // Ensure the item is visible on the map
             await Services.MapService.ZoomToItemAsync(Item);
         }
 
@@ -120,6 +150,35 @@ namespace KyFromAbove
             if (s == null && e == null) return null;
             if (s != null && e != null && s != e) return $"{s} … {e}";
             return s ?? e;
+        }
+        private async System.Threading.Tasks.Task EnsureThumbnailAsync()
+        {
+            var href = ThumbnailUrl;
+            if (string.IsNullOrWhiteSpace(href)) return;
+
+            try
+            {
+                var tempDir = Path.Combine(Path.GetTempPath(), "KyFromAbove", "thumbs");
+                Directory.CreateDirectory(tempDir);
+                var safeName = Item.Id;
+                foreach (var ch in System.IO.Path.GetInvalidFileNameChars()) safeName = safeName.Replace(ch, '_');
+                var ext = Path.GetExtension(new Uri(href).LocalPath);
+                if (string.IsNullOrWhiteSpace(ext)) ext = ".png";
+                var localPath = Path.Combine(tempDir, safeName + ext);
+
+                if (!File.Exists(localPath))
+                {
+                    using var client = new System.Net.Http.HttpClient();
+                    var bytes = await client.GetByteArrayAsync(href);
+                    await File.WriteAllBytesAsync(localPath, bytes);
+                }
+
+                ThumbnailLocalPath = localPath;
+            }
+            catch
+            {
+                // ignore thumbnail download failures
+            }
         }
     }
 }

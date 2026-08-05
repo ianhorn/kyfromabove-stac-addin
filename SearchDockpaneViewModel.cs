@@ -51,10 +51,17 @@ namespace KyFromAbove
             RefreshLayersCommand = new RelayCommand(async () => await OnRefreshLayersAsync(), () => !IsSearchBusy);
             UseLayerAoiCommand = new RelayCommand(async () => await OnUseLayerAoiAsync(), () => !IsSearchBusy && SelectedLayer != null);
                         MosaicAllCommand = new RelayCommand(async () => await OnMosaicAllAsync(), () => !IsSearchBusy && Results.Count > 0);
-            ClearAoiCommand = new RelayCommand(OnClearAoi, () => !IsSearchBusy);
+                        ClearAoiCommand = new RelayCommand(OnClearAoi, () => !IsSearchBusy);
+            UseExtentAoiCommand = new RelayCommand(async () => await OnUseExtentAoiAsync(), () => !IsSearchBusy);
             DownloadAllCommand = new RelayCommand(async () => await OnDownloadAllAsync(), () => !IsSearchBusy && Results.Count > 0);
             BrowseDownloadFolderCommand = new RelayCommand(() => OnBrowseDownloadFolder());
-            DownloadFolder = Path.Combine(Path.GetTempPath(), "KyFromAbove");
+            ShowFootprintsCommand = new RelayCommand(async () => await OnShowFootprintsAsync(), () => !IsSearchBusy && Results.Count > 0);
+            ToggleSelectAllCommand = new RelayCommand(() => OnToggleSelectAll(), () => !IsSearchBusy && Results.Count > 0);
+
+            var projectDir = Path.GetDirectoryName(Project.Current.DefaultGeodatabasePath);
+            if (string.IsNullOrWhiteSpace(projectDir)) projectDir = Path.GetTempPath();
+            DownloadFolder = Path.Combine(projectDir, "downloads");
+            Directory.CreateDirectory(DownloadFolder);
             MapLayers = new ObservableCollection<LayerViewModel>();
             _ = OnRefreshLayersAsync(); // populate on load
         }
@@ -79,7 +86,18 @@ namespace KyFromAbove
         public LayerViewModel SelectedLayer
         {
             get => _selectedLayer;
-            set => SetProperty(ref _selectedLayer, value, () => SelectedLayer);
+            set
+            {
+                SetProperty(ref _selectedLayer, value, () => SelectedLayer);
+                SetProperty(ref _selectedLayerName, value?.DisplayName, () => SelectedLayerName);
+            }
+        }
+
+        private string _selectedLayerName;
+        public string SelectedLayerName
+        {
+            get => _selectedLayerName;
+            private set => SetProperty(ref _selectedLayerName, value, () => SelectedLayerName);
         }
 
         private bool _isBusy;
@@ -156,8 +174,8 @@ namespace KyFromAbove
             set => SetProperty(ref _buildOverviews, value, () => BuildOverviews);
         }
 
-        private string _downloadFolder = Path.Combine(Path.GetTempPath(), "KyFromAbove");
-        /// <summary>Local folder where selected assets are downloaded. Defaults to %TEMP%\KyFromAbove.</summary>
+        private string _downloadFolder;
+        /// <summary>Local folder where selected assets are downloaded. Defaults to &lt;project_dir&gt;\downloads.</summary>
         public string DownloadFolder
         {
             get => _downloadFolder;
@@ -172,6 +190,14 @@ namespace KyFromAbove
             set => SetProperty(ref _downloadConcurrency, Math.Max(1, value), () => DownloadConcurrency);
         }
 
+        private bool _downloadPerItemFolder;
+        /// <summary>If true, each item downloads into its own subfolder under DownloadFolder. Off by default (flat into DownloadFolder).</summary>
+        public bool DownloadPerItemFolder
+        {
+            get => _downloadPerItemFolder;
+            set => SetProperty(ref _downloadPerItemFolder, value, () => DownloadPerItemFolder);
+        }
+
         public bool HasNextPage => !string.IsNullOrEmpty(_nextPageUrl);
 
         public ICommand SearchCommand { get; }
@@ -181,11 +207,14 @@ namespace KyFromAbove
         public ICommand DrawLineAoiCommand { get; }
         public ICommand DrawPolygonAoiCommand { get; }
         public ICommand RefreshLayersCommand { get; }
-                public ICommand UseLayerAoiCommand { get; }
+                        public ICommand UseLayerAoiCommand { get; }
+        public ICommand UseExtentAoiCommand { get; }
         public ICommand MosaicAllCommand { get; }
         public ICommand ClearAoiCommand { get; }
         public ICommand DownloadAllCommand { get; }
         public ICommand BrowseDownloadFolderCommand { get; }
+        public ICommand ShowFootprintsCommand { get; }
+        public ICommand ToggleSelectAllCommand { get; }
 
         #endregion
 
@@ -252,24 +281,57 @@ namespace KyFromAbove
             {
                 StatusMessage = "Open a map view first.";
                 return;
-            }
+                        }
             await FrameworkApplication.SetCurrentToolAsync(toolId);
         }
 
-                /// <summary>Build ONE mosaic dataset layer from all imagery/DEM result COGs and add it to the map. Skips point-cloud (LAZ) assets.</summary>
+        /// <summary>Use the active map view's current extent as the search AOI (projected to WGS84).</summary>
+        private async Task OnUseExtentAoiAsync()
+        {
+            var mv = MapView.Active;
+            if (mv == null) { StatusMessage = "Open a map view first."; return; }
+                                    try
+            {
+                Envelope bbox = await QueuedTask.Run(() =>
+                {
+                    var e = mv.Extent;
+                    if (e == null || e.IsEmpty) return null;
+                    // Project to WGS84 (lon/lat) so the corners are valid STAC intersects coords.
+                    if (e.SpatialReference == null ||
+                        e.SpatialReference.Wkid != SpatialReferences.WGS84.Wkid)
+                        e = (Envelope)GeometryEngine.Instance.Project(e, SpatialReferences.WGS84);
+                    return e;
+                });
+                if (bbox == null) { StatusMessage = "Map view extent is empty."; return; }
+
+                // Build the STAC 'intersects' polygon (a closed 4-corner bbox ring) in WGS84 lon/lat
+                // directly from the projected extent's coordinates. (GeoJsonConverter only handles
+                // MapPoint/Polyline/Polygon, not Envelope, so we emit the GeoJSON here.)
+                var f = System.Globalization.CultureInfo.InvariantCulture.NumberFormat;
+                string coords = string.Format(f,
+                    "[[{0},{1}],[{2},{1}],[{2},{3}],[{0},{3}],[{0},{1}]]",
+                    bbox.XMin, bbox.YMin, bbox.XMax, bbox.YMax);
+                _intersectsGeoJson = "{\"type\":\"Polygon\",\"coordinates\":[" + coords + "]}";
+                AoiText = string.Format(f,
+                    "Extent [{0:F4}, {1:F4}, {2:F4}, {3:F4}]", bbox.XMin, bbox.YMin, bbox.XMax, bbox.YMax);
+                StatusMessage = "AOI set from map extent.";
+            }
+            catch (Exception ex) { StatusMessage = "Could not set AOI from extent: " + ex.Message; }
+        }
+
+        /// <summary>Build ONE mosaic dataset layer from selected (or all) imagery/DEM result COGs and add it to the map. Skips point-cloud (LAZ) assets.</summary>
         private async System.Threading.Tasks.Task OnMosaicAllAsync()
         {
-            var hrefs = Results
-                .Where(r => r.DataAsset != null && IsRasterAsset(r.DataAsset))
-                .Select(r => r.DataAsset.Href)
-                .ToList();
+            var rasterResults = Results.Where(r => r.DataAsset != null && IsRasterAsset(r.DataAsset)).ToList();
+            var selected = rasterResults.Where(r => r.IsSelected).ToList();
+            var hrefs = (selected.Count > 0 ? selected : rasterResults).Select(r => r.DataAsset.Href).ToList();
             if (hrefs.Count == 0) { StatusMessage = "No raster (COG) results to mosaic."; return; }
 
-                                    var buildOverviews = BuildOverviews;
+            var buildOverviews = BuildOverviews;
             StatusMessage = "Building mosaic dataset layer...";
 
             // Show a closeable progress dialog so the user can watch (and dismiss) the long-running work.
-            var dlg = new ProgressDialog();
+            var dlg = new ProgressDialog("Mosaic progress");
             dlg.Show();
 
             try
@@ -336,6 +398,125 @@ namespace KyFromAbove
             }
         }
 
+        /// <summary>Browse for a local folder to download results into.</summary>
+        private void OnBrowseDownloadFolder()
+        {
+                        var fbd = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Select a folder to download the selected imagery/COGs to.",
+                SelectedPath = string.IsNullOrWhiteSpace(DownloadFolder) ? Path.GetTempPath() : DownloadFolder,
+                ShowNewFolderButton = true,
+                AutoUpgradeEnabled = true
+            };
+            if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
+            {
+                DownloadFolder = fbd.SelectedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+        }
+
+        /// <summary>
+        /// Download the selected (or all) raster result assets to DownloadFolder using several
+        /// parallel threads/cores. A closeable progress dialog reports per-asset status.
+        /// </summary>
+        private async System.Threading.Tasks.Task OnDownloadAllAsync()
+        {
+            if (string.IsNullOrWhiteSpace(DownloadFolder)) { StatusMessage = "Set a download folder."; return; }
+            try { Directory.CreateDirectory(DownloadFolder); }
+            catch (Exception ex) { StatusMessage = "Bad download folder: " + ex.Message; return; }
+
+            // Selected results; fall back to all raster results if nothing is explicitly selected.
+            var toDownload = Results
+                .Where(r => r.IsSelected && r.DataAsset != null && IsRasterAsset(r.DataAsset))
+                .ToList();
+            if (toDownload.Count == 0)
+                toDownload = Results.Where(r => r.DataAsset != null && IsRasterAsset(r.DataAsset)).ToList();
+            if (toDownload.Count == 0) { StatusMessage = "No raster results to download."; return; }
+
+            var concurrency = Math.Max(1, DownloadConcurrency);
+            var dl = new Services.DownloadService(Module1.Current.StacClient);
+            var cts = new CancellationTokenSource();
+
+            var dlg = new ProgressDialog("Downloading files");
+            dlg.Append($"Downloading {toDownload.Count} asset(s) to:\n  {DownloadFolder}\n({concurrency} parallel thread(s))");
+            dlg.Show();
+            dlg.Closing += (s, e) => cts.Cancel(); // user closing the window cancels the downloads
+
+            try
+            {
+                long ok = 0, fail = 0, bytes = 0;
+                var sem = new SemaphoreSlim(concurrency, concurrency);
+                var tasks = new List<Task>();
+
+                foreach (var r in toDownload)
+                {
+                    var item = r;
+                    var destDir = DownloadPerItemFolder ? Path.Combine(DownloadFolder, item.Item.Id) : DownloadFolder;
+                    var fname = Services.DownloadService.SuggestFileName(item.DataAsset, item.Item);
+                    var dest = Path.Combine(destDir, fname);
+
+                    // If flat download, avoid filename collisions by prefixing with item id.
+                    if (!DownloadPerItemFolder && !string.IsNullOrWhiteSpace(item.Item.Id))
+                    {
+                        dest = Path.Combine(destDir, item.Item.Id + "_" + fname);
+                    }
+                    var prog = new Progress<Services.DownloadProgress>(p =>
+                    {
+                        if (p.TotalBytes > 0)
+                            dlg.Append($"  [{item.Item.Id}] {p.BytesReceived:n0} / {p.TotalBytes:n0} bytes");
+                    });
+
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        await sem.WaitAsync();
+                        try
+                        {
+                            var res = await dl.DownloadAssetAsync(item.DataAsset.Href, dest, prog, cts.Token);
+                            if (res.Success)
+                            {
+                                Interlocked.Increment(ref ok);
+                                Interlocked.Add(ref bytes, res.Bytes);
+                            }
+                            else
+                            {
+                                Interlocked.Increment(ref fail);
+                                dlg.Append($"  [{item.Item.Id}] FAILED: {res.Error}");
+                            }
+                        }
+                        catch (OperationCanceledException) { Interlocked.Increment(ref fail); dlg.Append($"  [{item.Item.Id}] cancelled."); }
+                        catch (Exception ex) { Interlocked.Increment(ref fail); dlg.Append($"  [{item.Item.Id}] EXCEPTION: {ex.Message}"); }
+                        finally { sem.Release(); }
+                    }, cts.Token));
+                }
+
+                await Task.WhenAll(tasks);
+                string sum = $"Done: {ok} succeeded, {fail} failed, {bytes / (1024.0 * 1024.0):F1} MB written.";
+                StatusMessage = sum;
+                dlg.Append(sum);
+            }
+            catch (Exception ex) { StatusMessage = "Download failed: " + ex.Message; dlg.Append(StatusMessage); }
+            finally
+            {
+                dlg.Append("Download complete.");
+                try { dlg.Close(); } catch { /* already closed by user */ }
+            }
+        }
+
+        /// <summary>Add STAC search result footprints as a GeoJSON layer to the active map.</summary>
+        private async Task OnShowFootprintsAsync()
+        {
+            if (Results.Count == 0) { StatusMessage = "No results to show footprints for."; return; }
+            StatusMessage = "Adding footprints to map...";
+            try
+            {
+                bool ok = await Services.MapService.AddFootprintsLayerAsync(Results.Select(r => r.Item));
+                StatusMessage = ok ? "Footprints added to map." : "Failed to add footprints.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "Footprints failed: " + ex.Message;
+            }
+        }
+
         private static string GpMessages(IGPResult result)
         {
             try { return string.Join(" ", (result.Messages ?? Enumerable.Empty<IGPMessage>()).Select(m => m.Text ?? "")); }
@@ -381,15 +562,28 @@ namespace KyFromAbove
                 Geometry geom = await QueuedTask.Run(() =>
                 {
                     var sel = layer.GetSelection();
-                    var ids = (sel == null) ? null : sel.GetCount() > 0 ? sel : null;
-                    // Use selection if present, else all features.
+                    bool hasSelection = sel != null && sel.GetCount() > 0;
                     var rows = new List<Geometry>();
-                    using (var rc = layer.Search())
+                    if (hasSelection)
                     {
-                        while (rc.MoveNext())
+                        using (var rc = sel.Search())
                         {
-                            if (rc.Current is ArcGIS.Core.Data.Feature f) { using (f) rows.Add(f.GetShape()); }
-                            if (rows.Count > 1000) break; // safety cap
+                            while (rc.MoveNext())
+                            {
+                                if (rc.Current is ArcGIS.Core.Data.Feature f) { using (f) rows.Add(f.GetShape()); }
+                                if (rows.Count > 1000) break; // safety cap
+                            }
+                        }
+                    }
+                    else
+                    {
+                        using (var rc = layer.Search())
+                        {
+                            while (rc.MoveNext())
+                            {
+                                if (rc.Current is ArcGIS.Core.Data.Feature f) { using (f) rows.Add(f.GetShape()); }
+                                if (rows.Count > 1000) break; // safety cap
+                            }
                         }
                     }
                     if (rows.Count == 0) return null;
@@ -409,6 +603,14 @@ namespace KyFromAbove
             _intersectsGeoJson = null;
             AoiText = null;
             StatusMessage = "AOI cleared.";
+        }
+
+        private void OnToggleSelectAll()
+        {
+            bool? allSelected = Results.Count > 0 && Results.All(r => r.IsSelected);
+            bool newValue = !(allSelected ?? false);
+            foreach (var r in Results) r.IsSelected = newValue;
+            StatusMessage = newValue ? "All results selected." : "Selection cleared.";
         }
 
         private async Task OnSearchAsync(bool reset)

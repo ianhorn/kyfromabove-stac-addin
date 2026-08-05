@@ -1,0 +1,2 @@
+﻿git rm -r --cached --ignore-unmatch -- 'bin'
+git rm -r --cached --ignore-unmatch -- 'obj'

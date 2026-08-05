@@ -1,0 +1,15 @@
+<Project>
+  <!-- Centralize output paths so all projects produce artifacts in a consistent location.
+	   This helps avoid multiple debug output locations. Keep minimal to avoid interfering
+	   with the ArcGIS SDK targets that expect TargetPath to be valid. -->
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+	<!-- Use TargetFramework (when present) so multi-targeting projects remain separated -->
+	<OutputPath>bin\$(Configuration)\$(TargetFramework)\</OutputPath>
+	<IntermediateOutputPath>obj\$(Configuration)\$(TargetFramework)\</IntermediateOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+	<OutputPath>bin\$(Configuration)\$(TargetFramework)\</OutputPath>
+	<IntermediateOutputPath>obj\$(Configuration)\$(TargetFramework)\</IntermediateOutputPath>
+  </PropertyGroup>
+</Project>

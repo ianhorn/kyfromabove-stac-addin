@@ -78,7 +78,14 @@ namespace KyFromAbove.Stac
             if (Assets.TryGetValue("data", out var data)) return data;
             foreach (var kv in Assets)
                 if (kv.Value?.Roles != null && kv.Value.Roles.Contains("data")) return kv.Value;
-            foreach (var kv in Assets) return kv.Value;
+            // Fallback: first asset that doesn't look like a thumbnail/metadata
+            foreach (var kv in Assets)
+            {
+                var key = (kv.Key ?? "").ToLowerInvariant();
+                if (key == "thumbnail" || key == "metadata" || key == "xml") continue;
+                if (kv.Value?.Roles != null && (kv.Value.Roles.Contains("thumbnail") || kv.Value.Roles.Contains("metadata"))) continue;
+                return kv.Value;
+            }
             return null;
         }
 
@@ -89,6 +96,15 @@ namespace KyFromAbove.Stac
             if (Assets.TryGetValue("thumbnail", out var t)) return t;
             foreach (var kv in Assets)
                 if (kv.Value?.Roles != null && kv.Value.Roles.Contains("thumbnail")) return kv.Value;
+            // Fallback: any image-like asset that isn't the data asset
+            foreach (var kv in Assets)
+            {
+                var href = kv.Value?.Href ?? "";
+                if (href.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                    href.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                    href.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+                    return kv.Value;
+            }
             return null;
         }
     }

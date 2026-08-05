@@ -3,6 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+
+*.tif
+*.laz
+
 # User-specific files
 *.rsuser
 *.suo
@@ -222,6 +226,10 @@ _pkginfo.txt
 *.appx
 *.appxbundle
 *.appxupload
+
+# Esri add-in packages (binary add-in packages produced by the ArcGIS Pro SDK)
+*.esriAddinX
+*.esriAddin
 
 # Visual Studio cache files
 # files ending in .cache can be ignored
