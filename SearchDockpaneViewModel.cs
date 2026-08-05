@@ -200,7 +200,24 @@ namespace KyFromAboveSTAC
         public int ResultCount
         {
             get => _resultCount;
-            set => SetProperty(ref _resultCount, value, () => ResultCount);
+            set
+            {
+                SetProperty(ref _resultCount, value, () => ResultCount);
+                NotifyPropertyChanged(() => ResultsSummaryText);
+            }
+        }
+
+        /// <summary>Human-readable summary of the last search's result count (e.g. "Showing 50 of 137 matched"), shown above the results list.</summary>
+        public string ResultsSummaryText
+        {
+            get
+            {
+                if (!TotalMatched.HasValue && ResultCount == 0) return string.Empty;
+                if (ResultCount == 0) return "No results found.";
+                return TotalMatched.HasValue && TotalMatched.Value > ResultCount
+                    ? $"Showing {ResultCount} of {TotalMatched.Value} matched"
+                    : $"{ResultCount} result{(ResultCount == 1 ? "" : "s")} found";
+            }
         }
 
         private bool _hasSelection;
@@ -214,7 +231,11 @@ namespace KyFromAboveSTAC
         public int? TotalMatched
         {
             get => _totalMatched;
-            set => SetProperty(ref _totalMatched, value, () => TotalMatched);
+            set
+            {
+                SetProperty(ref _totalMatched, value, () => TotalMatched);
+                NotifyPropertyChanged(() => ResultsSummaryText);
+            }
         }
 
         private bool _hasPointCloudResults;
