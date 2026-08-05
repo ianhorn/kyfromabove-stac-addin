@@ -3,7 +3,7 @@
   KyFromAbove-STAC Browser - ArcGIS Pro Add-in
   Searches and downloads data from the Kentucky From Above STAC API.
 -->
-<ArcGIS defaultAssembly="KyFromAboveAddin.dll" defaultNamespace="KyFromAbove"
+<ArcGIS defaultAssembly="KyFromAboveSTACAddin.dll" defaultNamespace="KyFromAboveSTAC"
         xmlns="http://schemas.esri.com/DADF/Registry"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://schemas.esri.com/DADF/Registry file:///C:/Program%20Files/ArcGIS/Pro/bin/ArcGIS.Desktop.Framework.xsd">

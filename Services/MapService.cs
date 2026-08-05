@@ -118,11 +118,25 @@ namespace KyFromAboveSTAC.Services
             }
             catch
             {
-                // GeoJSON not supported or adding failed; try conversion to shapefile via geoprocessing
+                // GeoJSON not supported or adding failed; try conversion via geoprocessing into a temporary File Geodatabase
                 try
                 {
-                    var outShp = Path.Combine(tempDir, $"footprints_{DateTime.Now:yyyyMMdd_HHmmss}.shp");
-                    var parameters = Geoprocessing.MakeValueArray(tempFile, outShp);
+                    var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    var gdbName = $"KyFromAboveFootprints_{ts}.gdb";
+                    var gdbFolder = tempDir; // create GDB inside tempDir
+                    var gdbPath = Path.Combine(gdbFolder, gdbName);
+
+                    // Create the file geodatabase
+                    var gdbParams = Geoprocessing.MakeValueArray(gdbFolder, Path.GetFileNameWithoutExtension(gdbName));
+                    var gdbResult = await Geoprocessing.ExecuteToolAsync("Create File GDB", gdbParams, null, null, null);
+                    if (gdbResult == null || gdbResult.IsFailed)
+                        return false;
+
+                    // Output feature class inside the GDB
+                    var outFcName = $"footprints_{ts}";
+                    var outFc = Path.Combine(gdbPath, outFcName);
+
+                    var parameters = Geoprocessing.MakeValueArray(tempFile, outFc);
                     var gpResult = await Geoprocessing.ExecuteToolAsync("JSON To Features", parameters, null, null, null);
                     if (gpResult == null || gpResult.IsFailed)
                         return false;
@@ -131,7 +145,7 @@ namespace KyFromAboveSTAC.Services
                     {
                         var mv = MapView.Active;
                         if (mv == null) throw new InvalidOperationException("No active map view");
-                        LayerFactory.Instance.CreateLayer(new Uri(outShp), mv.Map, 0, "KyFromAbove Footprints");
+                        LayerFactory.Instance.CreateLayer(new Uri(outFc), mv.Map, 0, "KyFromAbove Footprints");
                     });
                 }
                 catch
