@@ -373,3 +373,8 @@ FodyWeavers.xsd
 # KyFromAbove-STAC code-signing artifacts (self-signed dev cert backups / exports)
 *.cer
 KyFromAbove.pfx
+
+# MkDocs (docs/) build output and local virtualenv
+site/
+.venv/
+venv/
