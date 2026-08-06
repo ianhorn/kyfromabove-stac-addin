@@ -3,6 +3,8 @@
  */
 using System;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
 using System.Windows.Input;
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
@@ -52,6 +54,22 @@ namespace KyFromAboveSTAC
         }
         public string TitleText { get; }
         public string DateText { get; }
+
+        private string _detailJson;
+        /// <summary>Pretty-printed JSON of the underlying STAC item -- shown as a tooltip when hovering over the result row.</summary>
+        public string DetailJson => _detailJson ??= BuildDetailJson();
+
+        private string BuildDetailJson()
+        {
+            try
+            {
+                return JsonSerializer.Serialize(Item, new JsonSerializerOptions { WriteIndented = true });
+            }
+            catch (Exception ex)
+            {
+                return "(could not render item JSON: " + ex.Message + ")";
+            }
+        }
 
         public bool IsSelected
         {
@@ -162,7 +180,7 @@ namespace KyFromAboveSTAC
         }
         private async System.Threading.Tasks.Task EnsureThumbnailAsync()
         {
-            var href = ThumbnailUrl;
+            var href = ResolveThumbnailHref();
             if (string.IsNullOrWhiteSpace(href)) return;
 
             try
@@ -184,10 +202,34 @@ namespace KyFromAboveSTAC
 
                 ThumbnailLocalPath = localPath;
             }
-            catch
+            catch (Exception ex)
             {
-                // ignore thumbnail download failures
+                // Surface the failure instead of silently leaving a blank thumbnail -- makes
+                // network/URL/permission problems visible without attaching a debugger.
+                System.Diagnostics.Debug.WriteLine($"[KyFromAbove] Thumbnail failed for {Item.Id} ({href}): {ex.Message}");
+                if (string.IsNullOrWhiteSpace(Status)) Status = "Thumbnail unavailable: " + ex.Message;
             }
+        }
+
+        /// <summary>
+        /// Some STAC APIs return asset hrefs relative to the item's own URL rather than absolute
+        /// links. Resolve against the item's "self" link when that's the case; otherwise a plain
+        /// HttpClient.GetByteArrayAsync(href) call throws and the thumbnail silently never appears.
+        /// </summary>
+        private string ResolveThumbnailHref()
+        {
+            var href = ThumbnailUrl;
+            if (string.IsNullOrWhiteSpace(href)) return null;
+            if (Uri.TryCreate(href, UriKind.Absolute, out _)) return href;
+
+            var selfHref = Item.Links?.FirstOrDefault(l => string.Equals(l.Rel, "self", StringComparison.OrdinalIgnoreCase))?.Href;
+            if (!string.IsNullOrWhiteSpace(selfHref) &&
+                Uri.TryCreate(selfHref, UriKind.Absolute, out var baseUri) &&
+                Uri.TryCreate(baseUri, href, out var resolved))
+            {
+                return resolved.ToString();
+            }
+            return null; // relative href with no usable base -- can't resolve it
         }
     }
 }

@@ -83,11 +83,22 @@
         <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,4">
             <TextBlock Text="Area of interest" FontWeight="SemiBold" Margin="0,0,0,2"/>
             <WrapPanel Orientation="Horizontal" Margin="0,0,0,2">
-                <Button Content="Draw Point" Command="{Binding DrawPointAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
-                <Button Content="Draw Line" Command="{Binding DrawLineAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
-                                <Button Content="Draw Polygon" Command="{Binding DrawPolygonAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
-            </WrapPanel>
-            <WrapPanel Orientation="Horizontal" Margin="0,0,0,2">
+                <ToggleButton x:Name="DrawAoiButton" Content="Draw ▾" Padding="6,2" Margin="0,0,2,0"
+                        ToolTip="Draw a point, line, or polygon AOI on the map."/>
+                <Popup x:Name="DrawAoiPopup" PlacementTarget="{Binding ElementName=DrawAoiButton}"
+                       IsOpen="{Binding IsChecked, ElementName=DrawAoiButton, Mode=TwoWay}"
+                       Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
+                    <Border Background="White" BorderBrush="Gray" BorderThickness="1" Padding="2">
+                        <StackPanel Orientation="Vertical">
+                            <Button Content="Draw Point" Command="{Binding DrawPointAoiCommand}" Click="DrawAoiOption_Click"
+                                    Padding="6,2" HorizontalContentAlignment="Left"/>
+                            <Button Content="Draw Line" Command="{Binding DrawLineAoiCommand}" Click="DrawAoiOption_Click"
+                                    Padding="6,2" HorizontalContentAlignment="Left"/>
+                            <Button Content="Draw Polygon" Command="{Binding DrawPolygonAoiCommand}" Click="DrawAoiOption_Click"
+                                    Padding="6,2" HorizontalContentAlignment="Left"/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
                 <Button Content="Use Extent" Command="{Binding UseExtentAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
                 <Button Content="Browse for AOI..." Command="{Binding BrowseAoiFileCommand}" Padding="6,2" Margin="0,0,2,0"
                         ToolTip="Load an AOI from a .shp or .geojson/.json file. Works even if no map is open."/>
@@ -99,6 +110,8 @@
                 <TextBlock Text="{Binding SelectedLayerName}" VerticalAlignment="Center" Margin="0,0,4,0" Opacity="0.8"/>
                 <Button Content="Refresh" Command="{Binding RefreshLayersCommand}" Padding="6,2" Margin="0,0,2,0"/>
                 <Button Content="Use Layer" Command="{Binding UseLayerAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
+                <CheckBox IsChecked="{Binding PreferSelectedFeatures}" VerticalAlignment="Center" Margin="2,0,0,0"
+                          ToolTip="Use selected features"/>
             </WrapPanel>
             <WrapPanel Orientation="Horizontal" Margin="0,2,0,2">
                 <Button Content="Mosaic All to Map" Command="{Binding MosaicAllCommand}" Padding="6,2" Margin="0,0,2,0" FontWeight="SemiBold"/>
@@ -165,7 +178,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <Button Content="Select All" Command="{Binding ToggleSelectAllCommand}" Grid.Column="0" Padding="6,2" Margin="0,0,4,0" ToolTip="Toggle selection of all results for bulk actions."/>
-                <Button Content="Download Selected" Command="{Binding DownloadAllCommand}" Grid.Column="1" HorizontalAlignment="Left" Padding="6,2" Margin="0,0,4,0" ToolTip="Download selected assets to the configured folder. Point-clouds (LAZ/LAS) are downloadable but cannot be added to the map." IsEnabled="{Binding HasSelection}"/>
+                <Button Content="Download Selected" Command="{Binding DownloadAllCommand}" Grid.Column="1" HorizontalAlignment="Left" Padding="6,2" Margin="0,0,4,0" ToolTip="Prompts for a folder, then downloads selected assets there. Point-clouds (LAZ/LAS) are downloadable but cannot be added to the map." IsEnabled="{Binding HasSelection}"/>
                 <Button Content="Show Footprints" Command="{Binding ShowFootprintsCommand}" Grid.Column="2" HorizontalAlignment="Right" Padding="6,2" ToolTip="Add result footprints as a layer to the active map."/>
             </Grid>
             <!-- Help text: clarify download vs add-to-map behavior for point-cloud assets -->
@@ -184,6 +197,13 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border BorderBrush="#33000000" BorderThickness="0,0,0,1" Padding="4" Margin="2">
+                            <Border.ToolTip>
+                                <ToolTip MaxWidth="380">
+                                    <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto">
+                                        <TextBlock Text="{Binding DetailJson}" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11"/>
+                                    </ScrollViewer>
+                                </ToolTip>
+                            </Border.ToolTip>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="64"/>
@@ -191,6 +211,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
@@ -234,26 +255,23 @@
                         Padding="8,2" Margin="8,0,0,0"
                         Visibility="{Binding HasNextPage, Converter={StaticResource BoolToVis}}"/>
             </StackPanel>
-            <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,6,0,0">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Download to:" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                    <TextBox Text="{Binding DownloadFolder}" Width="200" VerticalContentAlignment="Center"
-                    ToolTip="Folder where downloaded assets are saved (%TEMP%\KyFromAbove-STAC by default)"/>
-                    <Button Content="Browse..." Command="{Binding BrowseDownloadFolderCommand}" Padding="6,1" Margin="2,0,0,0"/>
-                </StackPanel>
-                <!-- On its own row below so it stays visible even when the dockpane is narrow -->
-                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <TextBlock Text="threads:" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                    <ComboBox ItemsSource="{Binding ThreadOptions}" DisplayMemberPath="Label"
-                              SelectedItem="{Binding SelectedThreadOption, Mode=TwoWay}" Width="150"
-                              VerticalContentAlignment="Center" ToolTip="Select number of parallel downloads (cores/threads)."/>
-                    <TextBox Text="{Binding DownloadConcurrency, UpdateSourceTrigger=PropertyChanged}" Width="40" Margin="4,0,0,0"
-                              VerticalContentAlignment="Center" Visibility="{Binding IsCustomThreadCount, Converter={StaticResource BoolToVis}}"
-                              ToolTip="Enter a custom number of parallel downloads."/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <CheckBox Content="Download each item to its own folder" IsChecked="{Binding DownloadPerItemFolder}" VerticalAlignment="Center" ToolTip="Download each item into its own subfolder"/>
-                </StackPanel>
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
+                <ToggleButton x:Name="ParallelDownloadsButton" Content="Parallel Downloads ▾" Padding="6,2"
+                        ToolTip="Select number of parallel downloads (cores/threads). Default: 75%."/>
+                <Popup x:Name="ParallelDownloadsPopup" PlacementTarget="{Binding ElementName=ParallelDownloadsButton}"
+                       IsOpen="{Binding IsChecked, ElementName=ParallelDownloadsButton, Mode=TwoWay}"
+                       Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
+                    <Border Background="White" BorderBrush="Gray" BorderThickness="1" Padding="2">
+                        <ListBox ItemsSource="{Binding ThreadOptions}" DisplayMemberPath="Label"
+                                 SelectedItem="{Binding SelectedThreadOption, Mode=TwoWay}"
+                                 SelectionChanged="ParallelDownloadsList_SelectionChanged"/>
+                    </Border>
+                </Popup>
+                <TextBox Text="{Binding DownloadConcurrency, UpdateSourceTrigger=PropertyChanged}" Width="40" Margin="4,0,0,0"
+                          VerticalContentAlignment="Center" Visibility="{Binding IsCustomThreadCount, Converter={StaticResource BoolToVis}}"
+                          ToolTip="Enter a custom number of parallel downloads."/>
+                <CheckBox IsChecked="{Binding DownloadPerItemFolder}" VerticalAlignment="Center" Margin="12,0,0,0"
+                          ToolTip="Download each item into its own subfolder"/>
             </StackPanel>
         </Grid>
     </Grid>

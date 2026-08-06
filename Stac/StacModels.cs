@@ -95,14 +95,16 @@ namespace KyFromAboveSTAC.Stac
             if (Assets == null) return null;
             if (Assets.TryGetValue("thumbnail", out var t)) return t;
             foreach (var kv in Assets)
-                if (kv.Value?.Roles != null && kv.Value.Roles.Contains("thumbnail")) return kv.Value;
+                if (kv.Value?.Roles != null && (kv.Value.Roles.Contains("thumbnail") || kv.Value.Roles.Contains("overview")))
+                    return kv.Value;
             // Fallback: any image-like asset that isn't the data asset
             foreach (var kv in Assets)
             {
                 var href = kv.Value?.Href ?? "";
                 if (href.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
                     href.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
-                    href.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+                    href.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                    href.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
                     return kv.Value;
             }
             return null;

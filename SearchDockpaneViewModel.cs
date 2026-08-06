@@ -81,7 +81,6 @@ namespace KyFromAboveSTAC
             UseExtentAoiCommand = new RelayCommand(async () => await OnUseExtentAoiAsync(), () => !IsSearchBusy);
             BrowseAoiFileCommand = new RelayCommand(async () => await OnBrowseAoiFileAsync(), () => !IsSearchBusy);
             DownloadAllCommand = new RelayCommand(async () => await OnDownloadAllAsync(), () => !IsSearchBusy && Results.Count > 0);
-            BrowseDownloadFolderCommand = new RelayCommand(() => OnBrowseDownloadFolder());
             ShowFootprintsCommand = new RelayCommand(async () => await OnShowFootprintsAsync(), () => !IsSearchBusy && Results.Count > 0);
             ToggleSelectAllCommand = new RelayCommand(() => OnToggleSelectAll(), () => !IsSearchBusy && Results.Count > 0);
 
@@ -98,7 +97,10 @@ namespace KyFromAboveSTAC
             ArcGIS.Desktop.Mapping.Events.ActiveMapViewChangedEvent.Subscribe(OnActiveMapViewChanged);
 
             SelectedThreadOption = ThreadOptions.FirstOrDefault(t => t.Label.StartsWith("75%")) ?? ThreadOptions[0];
-            SelectedLimitOption = LimitOptions.FirstOrDefault(o => o.Label == "50") ?? LimitOptions[0];
+            // Default limit is 10, which isn't one of the presets, so start on "Custom" with
+            // the custom box pre-filled at 10 (Limit's field initializer). The dropdown itself
+            // still only offers 50/100/200/500/Custom, unchanged.
+            SelectedLimitOption = LimitOptions.FirstOrDefault(o => o.Label == "Custom") ?? LimitOptions.Last();
         }
 
         private void Results_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -181,6 +183,14 @@ namespace KyFromAboveSTAC
             private set => SetProperty(ref _selectedLayerName, value, () => SelectedLayerName);
         }
 
+        private bool _preferSelectedFeatures = true;
+        /// <summary>When checked (default), "Use Layer" uses the layer's current selection if it has one; unchecked, it always uses the whole layer.</summary>
+        public bool PreferSelectedFeatures
+        {
+            get => _preferSelectedFeatures;
+            set => SetProperty(ref _preferSelectedFeatures, value, () => PreferSelectedFeatures);
+        }
+
         private bool _isBusy;
         public bool IsSearchBusy
         {
@@ -202,14 +212,14 @@ namespace KyFromAboveSTAC
             set => SetProperty(ref _freeText, value, () => FreeText);
         }
 
-        private int _limit = 50;
-        /// <summary>Search result limit. Floored at 50 -- the dropdown's lowest preset -- even for custom entry.</summary>
+        private int _limit = 10;
+        /// <summary>Search result limit. Defaults to 10 (via "Custom"); floored at 1.</summary>
         public int Limit
         {
             get => _limit;
             set
             {
-                SetProperty(ref _limit, Math.Max(50, value), () => Limit);
+                SetProperty(ref _limit, Math.Max(1, value), () => Limit);
                 NotifyPropertyChanged(() => ThumbnailsDisabled);
             }
         }
@@ -401,7 +411,6 @@ namespace KyFromAboveSTAC
         public ICommand MosaicAllCommand { get; }
         public ICommand ClearAoiCommand { get; }
         public ICommand DownloadAllCommand { get; }
-        public ICommand BrowseDownloadFolderCommand { get; }
         public ICommand ShowFootprintsCommand { get; }
         public ICommand ToggleSelectAllCommand { get; }
         public ICommand BringYourOwnApiCommand { get; }
@@ -736,29 +745,31 @@ namespace KyFromAboveSTAC
             }
         }
 
-        /// <summary>Browse for a local folder to download results into.</summary>
-        private void OnBrowseDownloadFolder()
+        /// <summary>Prompt the user for a local folder to download results into. Returns null if cancelled.</summary>
+        private string PromptForDownloadFolder()
         {
-                        var fbd = new System.Windows.Forms.FolderBrowserDialog
+            var fbd = new System.Windows.Forms.FolderBrowserDialog
             {
                 Description = "Select a folder to download the selected imagery/COGs to.",
                 SelectedPath = string.IsNullOrWhiteSpace(DownloadFolder) ? Path.GetTempPath() : DownloadFolder,
                 ShowNewFolderButton = true,
                 AutoUpgradeEnabled = true
             };
-            if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
-            {
-                DownloadFolder = fbd.SelectedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            }
+            return fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath)
+                ? fbd.SelectedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                : null;
         }
 
         /// <summary>
-        /// Download the selected (or all) raster result assets to DownloadFolder using several
-        /// parallel threads/cores. A closeable progress dialog reports per-asset status.
+        /// Download the selected (or all) raster result assets using several parallel threads/cores.
+        /// Prompts for the destination folder up front (no persistent "download to" box) and remembers
+        /// it as the dialog's starting folder next time. A closeable progress dialog reports per-asset status.
         /// </summary>
         private async System.Threading.Tasks.Task OnDownloadAllAsync()
         {
-            if (string.IsNullOrWhiteSpace(DownloadFolder)) { StatusMessage = "Set a download folder."; return; }
+            var folder = PromptForDownloadFolder();
+            if (string.IsNullOrWhiteSpace(folder)) { StatusMessage = "Download cancelled."; return; }
+            DownloadFolder = folder;
             try { Directory.CreateDirectory(DownloadFolder); }
             catch (Exception ex) { StatusMessage = "Bad download folder: " + ex.Message; return; }
 
@@ -945,13 +956,16 @@ namespace KyFromAboveSTAC
         {
             var layer = SelectedLayer?.Layer;
             if (layer == null) { StatusMessage = "Pick a layer first."; return; }
+            bool preferSelection = PreferSelectedFeatures;
             StatusMessage = "Reading layer geometry...";
             try
             {
                 Geometry geom = await QueuedTask.Run(() =>
                 {
                     var sel = layer.GetSelection();
-                    bool hasSelection = sel != null && sel.GetCount() > 0;
+                    // With the checkbox unchecked, always use the whole layer, even if some
+                    // features happen to be selected in the map.
+                    bool hasSelection = preferSelection && sel != null && sel.GetCount() > 0;
                     var rows = new List<Geometry>();
                     if (hasSelection)
                     {
