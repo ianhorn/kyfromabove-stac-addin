@@ -1,9 +1,10 @@
 site_name: KyFromAbove-STAC Browser
 site_description: ArcGIS Pro add-in for searching and downloading Kentucky From Above STAC imagery, DEM, and LiDAR data.
 site_author: KyFromAbove Tools
+site_url: https://ianhorn.github.io/kyfromabove-stac-addin/
 repo_url: https://github.com/ianhorn/kyfromabove-stac-addin
 repo_name: ianhorn/kyfromabove-stac-addin
-edit_uri: edit/master/docs/docs/
+edit_uri: edit/master/docs/
 
 theme:
   name: material
