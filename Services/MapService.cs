@@ -3,15 +3,13 @@
  */
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using ArcGIS.Core.CIM;
 using ArcGIS.Core.Geometry;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Mapping;
-using ArcGIS.Desktop.Core.Geoprocessing;
 using KyFromAboveSTAC.Stac;
 
 namespace KyFromAboveSTAC.Services
@@ -64,120 +62,87 @@ namespace KyFromAboveSTAC.Services
         }
 
         /// <summary>
-        /// Add STAC item footprints as a GeoJSON feature layer to the active map.
-        /// Writes a temporary GeoJSON file under %TEMP%\KyFromAbove\ and adds it as a layer, then zooms to the union bbox.
+        /// Draw STAC item footprints as graphic outlines on a "KyFromAbove Footprints" GraphicsLayer
+        /// in the active map, then zoom to their combined extent.
+        /// Graphics avoid the GeoJSON-file/GP-tool round trip (which is fragile: "JSON To Features"
+        /// expects Esri JSON, not RFC 7946 GeoJSON, so that path could fail even as a fallback) --
+        /// it's the same idea as a Draw AOI tool, just drawing many shapes instead of one.
         /// </summary>
         public static async Task<bool> AddFootprintsLayerAsync(IEnumerable<StacItem> items)
         {
             var list = items?.Where(i => i != null).ToList() ?? new List<StacItem>();
             if (list.Count == 0) return false;
 
-            var tempDir = Path.Combine(Path.GetTempPath(), "KyFromAbove-STAC");
-            Directory.CreateDirectory(tempDir);
-            var tempFile = Path.Combine(tempDir, $"footprints_{DateTime.Now:yyyyMMdd_HHmmss}.geojson");
-
-            var features = new List<object>();
-            foreach (var item in list)
-            {
-                var geomNode = JsonNode.Parse(item.Geometry.GetRawText());
-                var props = new Dictionary<string, object>
-                {
-                    ["title"] = item.Properties?.Title,
-                    ["datetime"] = item.Properties?.Datetime,
-                    ["collection"] = item.Collection
-                };
-                if (item.Bbox != null && item.Bbox.Length >= 4)
-                {
-                    props["bbox_minx"] = item.Bbox[0];
-                    props["bbox_miny"] = item.Bbox[1];
-                    props["bbox_maxx"] = item.Bbox[2];
-                    props["bbox_maxy"] = item.Bbox[3];
-                }
-                features.Add(new
-                {
-                    type = "Feature",
-                    id = item.Id,
-                    geometry = geomNode,
-                    properties = props
-                });
-            }
-
-            var fc = new { type = "FeatureCollection", features = features.ToArray() };
-            var options = new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
-            File.WriteAllText(tempFile, JsonSerializer.Serialize(fc, options));
-
-            // Try to add GeoJSON directly. If Pro doesn't support GeoJSON, fall back to JSON To Features GP tool and add the resulting feature class.
             try
             {
-                await QueuedTask.Run(() =>
+                return await QueuedTask.Run(() =>
                 {
                     var mv = MapView.Active;
-                    if (mv == null) throw new InvalidOperationException("No active map view");
-                    LayerFactory.Instance.CreateLayer(new Uri(tempFile), mv.Map, 0, "KyFromAbove Footprints");
+                    if (mv == null) return false;
+
+                    // Remove any previous footprints layer instead of stacking duplicates on repeated clicks.
+                    var existing = mv.Map.GetLayersAsFlattenedList().OfType<GraphicsLayer>()
+                        .FirstOrDefault(l => l.Name == "KyFromAbove Footprints");
+                    if (existing != null) mv.Map.RemoveLayer(existing);
+
+                    var gLayer = LayerFactory.Instance.CreateLayer<GraphicsLayer>(
+                        new GraphicsLayerCreationParams { Name = "KyFromAbove Footprints" }, mv.Map);
+
+                    var outline = SymbolFactory.Instance.ConstructStroke(ColorFactory.Instance.RedRGB, 2.0, SimpleLineStyle.Solid);
+                    var symbol = SymbolFactory.Instance.ConstructPolygonSymbol(ColorFactory.Instance.CreateRGBColor(0, 0, 0, 0), SimpleFillStyle.Null, outline);
+                    var symbolRef = symbol.MakeSymbolReference();
+
+                    double? minX = null, minY = null, maxX = null, maxY = null;
+                    int added = 0;
+                    foreach (var item in list)
+                    {
+                        // STAC item footprints are always polygons in practice; fall back to the bbox
+                        // rectangle if the geometry is missing/unparseable or comes back as some other type.
+                        Polygon footprint = null;
+                        try
+                        {
+                            var node = JsonNode.Parse(item.Geometry.GetRawText());
+                            // MapService and AoiImportService are both in KyFromAboveSTAC.Services, so no qualifier needed.
+                            footprint = AoiImportService.BuildGeometryFromNode(node) as Polygon;
+                        }
+                        catch { /* fall back to bbox below */ }
+
+                        if (footprint == null && item.TryGetBbox(out double fx0, out double fy0, out double fx1, out double fy1))
+                        {
+                            footprint = PolygonBuilderEx.CreatePolygon(
+                                EnvelopeBuilderEx.CreateEnvelope(fx0, fy0, fx1, fy1, SpatialReferences.WGS84));
+                        }
+                        if (footprint == null) continue;
+
+                        // Confirmed API (Esri docs, "Polygon Graphic Element using CIMGraphic"):
+                        // build a CIMPolygonGraphic and add it via the GraphicsLayerExtensions.AddElement
+                        // extension method -- there's no overload that takes a raw Geometry + symbol pair.
+                        var graphic = new CIMPolygonGraphic { Polygon = footprint, Symbol = symbolRef };
+                        gLayer.AddElement(graphic);
+                        added++;
+
+                        if (item.TryGetBbox(out double bx0, out double by0, out double bx1, out double by1))
+                        {
+                            minX = minX.HasValue ? Math.Min(minX.Value, bx0) : bx0;
+                            minY = minY.HasValue ? Math.Min(minY.Value, by0) : by0;
+                            maxX = Math.Max(maxX ?? double.MinValue, bx1);
+                            maxY = Math.Max(maxY ?? double.MinValue, by1);
+                        }
+                    }
+                    if (added == 0) return false;
+
+                    if (minX.HasValue)
+                    {
+                        var env = EnvelopeBuilderEx.CreateEnvelope(minX.Value, minY.Value, maxX.Value, maxY.Value, SpatialReferences.WGS84);
+                        mv.ZoomToAsync(env, TimeSpan.FromSeconds(2), false);
+                    }
+                    return true;
                 });
             }
             catch
             {
-                // GeoJSON not supported or adding failed; try conversion via geoprocessing into a temporary File Geodatabase
-                try
-                {
-                    var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    var gdbName = $"KyFromAboveFootprints_{ts}.gdb";
-                    var gdbFolder = tempDir; // create GDB inside tempDir
-                    var gdbPath = Path.Combine(gdbFolder, gdbName);
-
-                    // Create the file geodatabase
-                    var gdbParams = Geoprocessing.MakeValueArray(gdbFolder, Path.GetFileNameWithoutExtension(gdbName));
-                    var gdbResult = await Geoprocessing.ExecuteToolAsync("Create File GDB", gdbParams, null, null, null);
-                    if (gdbResult == null || gdbResult.IsFailed)
-                        return false;
-
-                    // Output feature class inside the GDB
-                    var outFcName = $"footprints_{ts}";
-                    var outFc = Path.Combine(gdbPath, outFcName);
-
-                    var parameters = Geoprocessing.MakeValueArray(tempFile, outFc);
-                    var gpResult = await Geoprocessing.ExecuteToolAsync("JSON To Features", parameters, null, null, null);
-                    if (gpResult == null || gpResult.IsFailed)
-                        return false;
-
-                    await QueuedTask.Run(() =>
-                    {
-                        var mv = MapView.Active;
-                        if (mv == null) throw new InvalidOperationException("No active map view");
-                        LayerFactory.Instance.CreateLayer(new Uri(outFc), mv.Map, 0, "KyFromAbove Footprints");
-                    });
-                }
-                catch
-                {
-                    return false;
-                }
+                return false;
             }
-
-            // Zoom to overall extent of all footprints.
-            double? minX = null, minY = null, maxX = null, maxY = null;
-            foreach (var item in list)
-            {
-                if (item.TryGetBbox(out double bx0, out double by0, out double bx1, out double by1))
-                {
-                    minX = minX.HasValue ? Math.Min(minX.Value, bx0) : bx0;
-                    minY = minY.HasValue ? Math.Min(minY.Value, by0) : by0;
-                    maxX = Math.Max(maxX ?? double.MinValue, bx1);
-                    maxY = Math.Max(maxY ?? double.MinValue, by1);
-                }
-            }
-            if (minX.HasValue)
-            {
-                var env = EnvelopeBuilderEx.CreateEnvelope(minX.Value, minY.Value, maxX.Value, maxY.Value, SpatialReferences.WGS84);
-                // Zoom must run on the QueuedTask
-                await QueuedTask.Run(() =>
-                {
-                    var mv = MapView.Active;
-                    if (mv != null) mv.ZoomToAsync(env, TimeSpan.FromSeconds(2), false);
-                });
-            }
-
-            return true;
         }
     }
 }

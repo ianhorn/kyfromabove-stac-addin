@@ -55,6 +55,14 @@
       <CopyLocal>False</CopyLocal>
       <Private>False</Private>
     </Reference>
+    <!-- GraphicsLayer's AddElement extension method, ElementFactory, GraphicElement, and ElementInfo
+         all physically live in this assembly, even though several are exposed under the
+         ArcGIS.Desktop.Mapping namespace. Needed for the footprints GraphicsLayer feature. -->
+    <Reference Include="ArcGIS.Desktop.Layouts">
+      <HintPath>C:\Program Files\ArcGIS\Pro\bin\Extensions\Layout\ArcGIS.Desktop.Layouts.dll</HintPath>
+      <CopyLocal>False</CopyLocal>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="ArcGIS.Desktop.Catalog">
       <HintPath>C:\Program Files\ArcGIS\Pro\bin\Extensions\Catalog\ArcGIS.Desktop.Catalog.dll</HintPath>
       <CopyLocal>False</CopyLocal>

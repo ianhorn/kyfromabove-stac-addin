@@ -19,7 +19,7 @@ namespace KyFromAboveSTAC
         private string _status;
         private string _thumbnailLocalPath;
 
-        public ResultItemViewModel(StacItem item, StacCollection collection)
+        public ResultItemViewModel(StacItem item, StacCollection collection, bool loadThumbnail = true)
         {
             Item = item ?? throw new ArgumentNullException(nameof(item));
             CollectionId = item.Collection;
@@ -36,7 +36,8 @@ namespace KyFromAboveSTAC
                                   item.Properties?.EndDatetime);
             DataAsset = item.GetDataAsset();
             ThumbnailUrl = item.GetThumbnailAsset()?.Href;
-            _ = EnsureThumbnailAsync();
+            if (loadThumbnail)
+                _ = EnsureThumbnailAsync();
         }
 
         public StacItem Item { get; }

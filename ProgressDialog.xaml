@@ -14,6 +14,7 @@
                  VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12"/>
         <ProgressBar Grid.Row="1" x:Name="Prog" IsIndeterminate="True" Height="16" Margin="0,8,0,8"/>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="CancelBtn" Content="Cancel" Padding="14,3" Margin="0,0,8,0" Click="Cancel_Click"/>
             <Button x:Name="CloseBtn" Content="Close" Padding="14,3" Click="Close_Click"/>
         </StackPanel>
     </Grid>

@@ -26,6 +26,20 @@ using KyFromAboveSTAC.Stac;
 
 namespace KyFromAboveSTAC
 {
+    /// <summary>One entry in the "threads" dropdown: a preset core count, or "Custom" (Value == null) to enable manual entry.</summary>
+    public class ThreadOption
+    {
+        public string Label { get; set; }
+        public int? Value { get; set; }
+    }
+
+    /// <summary>One entry in the "Limit" dropdown: a preset result-count cap, or "Custom" (Value == null) to enable manual entry.</summary>
+    public class LimitOption
+    {
+        public string Label { get; set; }
+        public int? Value { get; set; }
+    }
+
     internal class SearchDockpaneViewModel : DockPane
     {
         private const string _dockPaneID = "KyFromAbove_SearchDockpane";
@@ -54,6 +68,7 @@ namespace KyFromAboveSTAC
                         MosaicAllCommand = new RelayCommand(async () => await OnMosaicAllAsync(), () => !IsSearchBusy && Results.Count > 0);
                         ClearAoiCommand = new RelayCommand(OnClearAoi, () => !IsSearchBusy);
             UseExtentAoiCommand = new RelayCommand(async () => await OnUseExtentAoiAsync(), () => !IsSearchBusy);
+            BrowseAoiFileCommand = new RelayCommand(async () => await OnBrowseAoiFileAsync(), () => !IsSearchBusy);
             DownloadAllCommand = new RelayCommand(async () => await OnDownloadAllAsync(), () => !IsSearchBusy && Results.Count > 0);
             BrowseDownloadFolderCommand = new RelayCommand(() => OnBrowseDownloadFolder());
             ShowFootprintsCommand = new RelayCommand(async () => await OnShowFootprintsAsync(), () => !IsSearchBusy && Results.Count > 0);
@@ -64,7 +79,15 @@ namespace KyFromAboveSTAC
             DownloadFolder = Path.Combine(projectDir, "downloads");
             Directory.CreateDirectory(DownloadFolder);
             MapLayers = new ObservableCollection<LayerViewModel>();
-            _ = OnRefreshLayersAsync(); // populate on load
+            _ = OnRefreshLayersAsync(); // populate immediately, in case a map view is already active
+            // The dockpane can be constructed before the default map view finishes activating
+            // (e.g. at Pro startup), in which case the call above finds nothing and never retries.
+            // Re-run the refresh every time a map view becomes active so the dropdown doesn't stay
+            // blank until the user notices and clicks Refresh manually.
+            ArcGIS.Desktop.Mapping.Events.ActiveMapViewChangedEvent.Subscribe(OnActiveMapViewChanged);
+
+            SelectedThreadOption = ThreadOptions.FirstOrDefault(t => t.Label.StartsWith("75%")) ?? ThreadOptions[0];
+            SelectedLimitOption = LimitOptions.FirstOrDefault(o => o.Label == "50") ?? LimitOptions[0];
         }
 
         private void Results_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -166,11 +189,45 @@ namespace KyFromAboveSTAC
         }
 
         private int _limit = 50;
+        /// <summary>Search result limit. Floored at 50 -- the dropdown's lowest preset -- even for custom entry.</summary>
         public int Limit
         {
             get => _limit;
-            set => SetProperty(ref _limit, value, () => Limit);
+            set
+            {
+                SetProperty(ref _limit, Math.Max(50, value), () => Limit);
+                NotifyPropertyChanged(() => ThumbnailsDisabled);
+            }
         }
+
+        /// <summary>When the search limit exceeds 50, thumbnails are skipped for new results to avoid a burst of extra network requests.</summary>
+        public bool ThumbnailsDisabled => Limit > 50;
+
+        public ObservableCollection<LimitOption> LimitOptions { get; } = new ObservableCollection<LimitOption>
+        {
+            new LimitOption { Label = "50", Value = 50 },
+            new LimitOption { Label = "100", Value = 100 },
+            new LimitOption { Label = "200", Value = 200 },
+            new LimitOption { Label = "500", Value = 500 },
+            new LimitOption { Label = "Custom", Value = null }
+        };
+
+        private LimitOption _selectedLimitOption;
+        /// <summary>The selected result-limit preset. Choosing "Custom" reveals a manual entry box bound to Limit.</summary>
+        public LimitOption SelectedLimitOption
+        {
+            get => _selectedLimitOption;
+            set
+            {
+                SetProperty(ref _selectedLimitOption, value, () => SelectedLimitOption);
+                NotifyPropertyChanged(() => IsCustomLimit);
+                if (value?.Value.HasValue == true)
+                    Limit = value.Value.Value;
+            }
+        }
+
+        /// <summary>True when "Custom" is selected in the Limit dropdown, showing the manual entry box.</summary>
+        public bool IsCustomLimit => SelectedLimitOption?.Value == null;
 
         private DateTime? _startDate;
         public DateTime? StartDate
@@ -271,7 +328,41 @@ namespace KyFromAboveSTAC
             set => SetProperty(ref _downloadConcurrency, Math.Max(1, value), () => DownloadConcurrency);
         }
 
-        public int[] CoreOptions => new int[] { 1, 2, 4, 8, Math.Max(1, Environment.ProcessorCount) };
+        public ObservableCollection<ThreadOption> ThreadOptions { get; } = BuildThreadOptions();
+
+        private static ObservableCollection<ThreadOption> BuildThreadOptions()
+        {
+            int cores = Math.Max(1, Environment.ProcessorCount);
+            int nMinus1 = Math.Max(1, cores - 1);
+            int p75 = Math.Max(1, (int)Math.Round(cores * 0.75));
+            int p50 = Math.Max(1, (int)Math.Round(cores * 0.50));
+            int p25 = Math.Max(1, (int)Math.Round(cores * 0.25));
+            return new ObservableCollection<ThreadOption>
+            {
+                new ThreadOption { Label = $"All but 1 core ({nMinus1})", Value = nMinus1 },
+                new ThreadOption { Label = $"75% ({p75})", Value = p75 },
+                new ThreadOption { Label = $"50% ({p50})", Value = p50 },
+                new ThreadOption { Label = $"25% ({p25})", Value = p25 },
+                new ThreadOption { Label = "Custom", Value = null }
+            };
+        }
+
+        private ThreadOption _selectedThreadOption;
+        /// <summary>The selected threads preset. Choosing "Custom" reveals a manual entry box bound to DownloadConcurrency.</summary>
+        public ThreadOption SelectedThreadOption
+        {
+            get => _selectedThreadOption;
+            set
+            {
+                SetProperty(ref _selectedThreadOption, value, () => SelectedThreadOption);
+                NotifyPropertyChanged(() => IsCustomThreadCount);
+                if (value?.Value.HasValue == true)
+                    DownloadConcurrency = value.Value.Value;
+            }
+        }
+
+        /// <summary>True when "Custom" is selected in the threads dropdown, showing the manual entry box.</summary>
+        public bool IsCustomThreadCount => SelectedThreadOption?.Value == null;
 
         private bool _downloadPerItemFolder;
         /// <summary>If true, each item downloads into its own subfolder under DownloadFolder. Off by default (flat into DownloadFolder).</summary>
@@ -292,6 +383,7 @@ namespace KyFromAboveSTAC
         public ICommand RefreshLayersCommand { get; }
                         public ICommand UseLayerAoiCommand { get; }
         public ICommand UseExtentAoiCommand { get; }
+        public ICommand BrowseAoiFileCommand { get; }
         public ICommand MosaicAllCommand { get; }
         public ICommand ClearAoiCommand { get; }
         public ICommand DownloadAllCommand { get; }
@@ -402,6 +494,51 @@ namespace KyFromAboveSTAC
             catch (Exception ex) { StatusMessage = "Could not set AOI from extent: " + ex.Message; }
         }
 
+        /// <summary>Browse for an AOI file (.shp or .geojson/.json). Works with no map view open.</summary>
+        private async Task OnBrowseAoiFileAsync()
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Browse for AOI file",
+                Filter = Services.AoiImportService.OpenDialogFilter,
+                CheckFileExists = true
+            };
+            if (dlg.ShowDialog() != true) return;
+            await LoadAoiFromFileAsync(dlg.FileName);
+        }
+
+        /// <summary>
+        /// Load an AOI from a Shapefile (.shp) or GeoJSON (.geojson/.json) file and set it as the
+        /// search 'intersects' AOI. Used by the Browse button and by drag-and-drop onto the AOI
+        /// panel. Unlike Draw/Use Extent/Use Layer, this does not require an active map view --
+        /// useful when the user hasn't opened a map yet.
+        /// </summary>
+        public async Task LoadAoiFromFileAsync(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath)) return;
+            if (!Services.AoiImportService.IsSupportedFile(filePath))
+            {
+                StatusMessage = "Unsupported AOI file type. Use .shp or .geojson/.json.";
+                return;
+            }
+
+            StatusMessage = $"Loading AOI from {System.IO.Path.GetFileName(filePath)}...";
+            try
+            {
+                Geometry geometry = await QueuedTask.Run(() => Services.AoiImportService.LoadGeometry(filePath));
+                if (geometry == null || geometry.IsEmpty)
+                {
+                    StatusMessage = "AOI file has no usable geometry.";
+                    return;
+                }
+                SetAoi(geometry);
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "Could not load AOI file: " + ex.Message;
+            }
+        }
+
         /// <summary>Build ONE mosaic dataset layer from selected (or all) imagery/DEM result COGs and add it to the map. Skips point-cloud (LAZ) assets.</summary>
         private async System.Threading.Tasks.Task OnMosaicAllAsync()
         {
@@ -413,9 +550,24 @@ namespace KyFromAboveSTAC
             var buildOverviews = BuildOverviews;
             StatusMessage = "Building mosaic dataset layer...";
 
-            // Show a closeable progress dialog so the user can watch (and dismiss) the long-running work.
+            // Plain cancellation token, checked between geoprocessing steps. Note: this can't abort
+            // a GP tool call that's already running (ArcGIS Pro's own progress dialog would be needed
+            // for that), but it stops before starting the *next* step -- most usefully, before
+            // "Build Overviews", which is the one described as "can take a while".
+            var cts = new CancellationTokenSource();
+
+            // Show a closeable/cancelable progress dialog so the user can watch and interrupt the long-running work.
             var dlg = new ProgressDialog("Mosaic progress");
             dlg.Show();
+            dlg.CancelRequested += (s, e) => cts.Cancel();
+
+            bool Cancelled(ProgressDialog d)
+            {
+                if (!cts.IsCancellationRequested) return false;
+                StatusMessage = "Mosaic cancelled.";
+                d.Append("Mosaic cancelled by user (before the next step).");
+                return true;
+            }
 
             try
             {
@@ -430,33 +582,42 @@ namespace KyFromAboveSTAC
                     string mosaicName = "KyFromAbove_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
                     var sr = mv.Map.SpatialReference ?? SpatialReferences.WGS84;
 
+                    if (Cancelled(dlg)) return;
+
                     // 1) Create Mosaic Dataset: (out_gdb_path, in_mosaic_dataset_name, spatial_reference)
+                    // GPExecuteToolFlags.None on every call here: without it, Pro's default GP behavior
+                    // (AddOutputsToMap) adds the mosaic dataset to the map on its own, and then our own
+                    // LayerFactory.CreateLayer call below adds it again -- that's the duplicate-layer bug.
                     dlg.Append("Creating mosaic dataset...");
                     var createArgs = Geoprocessing.MakeValueArray(gdb, mosaicName, sr);
-                    var createRes = await Geoprocessing.ExecuteToolAsync("management.CreateMosaicDataset", createArgs)
-                        .ConfigureAwait(true);
+                    var createRes = await Geoprocessing.ExecuteToolAsync("management.CreateMosaicDataset", createArgs,
+                        null, null, null, GPExecuteToolFlags.None).ConfigureAwait(true);
                     if (createRes.IsFailed) { StatusMessage = "CreateMosaicDataset failed: " + GpMessages(createRes); return; }
                     string mosaicPath = System.IO.Path.Combine(gdb, mosaicName);
+                    if (Cancelled(dlg)) return;
 
                     // 2) Add Rasters To Mosaic Dataset: (in_mosaic_dataset, raster_type, data_path)
                     dlg.Append($"Adding {hrefs.Count} rasters to mosaic...");
                     var addArgs = Geoprocessing.MakeValueArray(mosaicPath, "Raster Dataset", string.Join(";", hrefs));
-                    var addRes = await Geoprocessing.ExecuteToolAsync("management.AddRastersToMosaicDataset", addArgs)
-                        .ConfigureAwait(true);
+                    var addRes = await Geoprocessing.ExecuteToolAsync("management.AddRastersToMosaicDataset", addArgs,
+                        null, null, null, GPExecuteToolFlags.None).ConfigureAwait(true);
                     if (addRes.IsFailed) { StatusMessage = "AddRastersToMosaicDataset failed: " + GpMessages(addRes); return; }
+                    if (Cancelled(dlg)) return;
 
                     // (optional) Define + Build overviews for faster display at small scales.
                     if (buildOverviews)
                     {
                         dlg.Append("Defining overviews...");
                         var defRes = await Geoprocessing.ExecuteToolAsync("management.DefineOverviews",
-                            Geoprocessing.MakeValueArray(mosaicPath)).ConfigureAwait(true);
+                            Geoprocessing.MakeValueArray(mosaicPath), null, null, null, GPExecuteToolFlags.None).ConfigureAwait(true);
                         if (defRes.IsFailed) { StatusMessage = "DefineOverviews failed: " + GpMessages(defRes); return; }
+                        if (Cancelled(dlg)) return;
 
                         dlg.Append("Building overviews (this can take a while)...");
                         var buildRes = await Geoprocessing.ExecuteToolAsync("management.BuildOverviews",
-                            Geoprocessing.MakeValueArray(mosaicPath)).ConfigureAwait(true);
+                            Geoprocessing.MakeValueArray(mosaicPath), null, null, null, GPExecuteToolFlags.None).ConfigureAwait(true);
                         if (buildRes.IsFailed) { StatusMessage = "BuildOverviews failed: " + GpMessages(buildRes); return; }
+                        if (Cancelled(dlg)) return;
                     }
 
                     // 3) Add the mosaic layer to the active map.
@@ -476,8 +637,9 @@ namespace KyFromAboveSTAC
             catch (System.Exception ex) { StatusMessage = "Mosaic failed: " + ex.Message; dlg.Append(StatusMessage); }
             finally
             {
+                dlg.DisableCancel();
                 dlg.Append("Done.");
-                try { dlg.Close(); } catch { /* ignore if already closed by user */ }
+                dlg.CloseWhenReady();
             }
         }
 
@@ -523,7 +685,7 @@ namespace KyFromAboveSTAC
             var dlg = new ProgressDialog("Downloading files");
             dlg.Append($"Downloading {toDownload.Count} asset(s) to:\n  {DownloadFolder}\n({concurrency} parallel thread(s))");
             dlg.Show();
-            dlg.Closing += (s, e) => cts.Cancel(); // user closing the window cancels the downloads
+            dlg.CancelRequested += (s, e) => cts.Cancel(); // Cancel button or closing the window stops the remaining downloads
 
             try
             {
@@ -585,8 +747,9 @@ namespace KyFromAboveSTAC
             catch (Exception ex) { StatusMessage = "Download failed: " + ex.Message; dlg.Append(StatusMessage); }
             finally
             {
+                dlg.DisableCancel();
                 dlg.Append("Download complete.");
-                try { dlg.Close(); } catch { /* already closed by user */ }
+                dlg.CloseWhenReady();
             }
         }
 
@@ -604,8 +767,8 @@ namespace KyFromAboveSTAC
                 }
                 else
                 {
-                    StatusMessage = "Failed to add footprints. See ArcGIS Pro messages for details.";
-                    System.Windows.MessageBox.Show("Could not add footprints to the map. Check the ArcGIS Pro messages window for details or ensure GeoJSON support is available.", "KyFromAbove: Footprints", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    StatusMessage = "Failed to add footprints. Open a map view first.";
+                    System.Windows.MessageBox.Show("Could not add footprints to the map. Open a map view first, then try again.", "KyFromAbove: Footprints", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
             catch (Exception ex)
@@ -658,6 +821,12 @@ namespace KyFromAboveSTAC
             var ext = System.IO.Path.GetExtension(a.Href ?? "").ToLowerInvariant();
             if (string.IsNullOrWhiteSpace(ext)) return false;
             return ext == ".laz" || ext == ".las" || ext == ".copc" || ext == ".zlidar" || ext == ".zlas";
+        }
+
+        /// <summary>Fired whenever a map view becomes active (map opened, map tab switched, project opened) -- refresh the layer dropdown.</summary>
+        private void OnActiveMapViewChanged(ArcGIS.Desktop.Mapping.Events.ActiveMapViewChangedEventArgs args)
+        {
+            _ = OnRefreshLayersAsync();
         }
 
         /// <summary>Populate the layer dropdown with feature layers from the active map.</summary>
@@ -781,7 +950,7 @@ namespace KyFromAboveSTAC
                     foreach (var f in page.Features)
                     {
                         var colVM = Collections.FirstOrDefault(c => c.Id == f.Collection);
-                        Results.Add(new ResultItemViewModel(f, colVM?.Collection));
+                        Results.Add(new ResultItemViewModel(f, colVM?.Collection, loadThumbnail: !ThumbnailsDisabled));
                     }
                 }
 

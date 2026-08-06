@@ -52,13 +52,24 @@ namespace KyFromAboveSTAC.Services
                     var buffer = new byte[81920];
                     long received = 0;
                     int read;
+                    // Throttle progress reports (time-based, not per-chunk): with many parallel downloads
+                    // and large COG/DEM/LAZ files, reporting on every 80KB chunk floods the UI dispatcher
+                    // with far more callbacks than it can keep up with and makes the whole window freeze.
+                    var reportClock = System.Diagnostics.Stopwatch.StartNew();
+                    const int reportIntervalMs = 250;
                     while ((read = await src.ReadAsync(buffer, 0, buffer.Length, ct).ConfigureAwait(false)) > 0)
                     {
                         ct.ThrowIfCancellationRequested();
                         await dst.WriteAsync(buffer, 0, read, ct).ConfigureAwait(false);
                         received += read;
-                        progress?.Report(new DownloadProgress { BytesReceived = received, TotalBytes = total });
+                        if (reportClock.ElapsedMilliseconds >= reportIntervalMs)
+                        {
+                            progress?.Report(new DownloadProgress { BytesReceived = received, TotalBytes = total });
+                            reportClock.Restart();
+                        }
                     }
+                    // Always send a final report so the UI reflects 100% even if the last chunk landed mid-interval.
+                    progress?.Report(new DownloadProgress { BytesReceived = received, TotalBytes = total });
                     return new DownloadResult { Success = true, LocalPath = destinationPath, Bytes = received };
                 }
             }
