@@ -44,21 +44,32 @@ namespace KyFromAboveSTAC
     {
         private const string _dockPaneID = "KyFromAbove_SearchDockpane";
 
-        private readonly StacClient _client;
-        private string _nextPageUrl;
+        // Per-source pagination: each active API source tracks its own "next" link, since a
+        // merged multi-source search can have some sources exhausted and others not.
+        private readonly Dictionary<StacApiSource, string> _nextPageUrls = new Dictionary<StacApiSource, string>();
         private CancellationTokenSource _searchCts;
 
         #region CTOR + Show
 
         protected SearchDockpaneViewModel()
         {
-            _client = Module1.Current.StacClient;
+            // The built-in KyFromAbove catalog is always present, wrapping Module1's shared
+            // StacClient singleton (unchanged from before -- downloads etc. still use it directly).
+            ApiSources = new ObservableCollection<StacApiSource>
+            {
+                new StacApiSource("KyFromAbove", Module1.Current.StacClient, isDefault: true)
+            };
+            BringYourOwnApiCommand = new RelayCommand(() => OnBringYourOwnApi(), () => !IsSearchBusy);
+            RemoveApiSourceCommand = new RelayCommand(
+                param => OnRemoveApiSource(param as StacApiSource),
+                param => !IsSearchBusy && (param as StacApiSource)?.CanRemove == true);
+
             Collections = new ObservableCollection<CollectionCheckViewModel>();
             Results = new ObservableCollection<ResultItemViewModel>();
             Results.CollectionChanged += Results_CollectionChanged;
             StatusMessage = "Load collections to begin.";
             SearchCommand = new RelayCommand(async () => await OnSearchAsync(reset: true), () => !IsSearchBusy);
-            NextPageCommand = new RelayCommand(async () => await OnSearchAsync(reset: false), () => !IsSearchBusy && !string.IsNullOrEmpty(_nextPageUrl));
+            NextPageCommand = new RelayCommand(async () => await OnSearchAsync(reset: false), () => !IsSearchBusy && HasNextPage);
             LoadCollectionsCommand = new RelayCommand(async () => await OnLoadCollectionsAsync(), () => !IsSearchBusy);
             DrawPointAoiCommand = new RelayCommand(async () => await OnDrawAoiAsync(DrawPointAoiTool.ToolId), () => !IsSearchBusy);
             DrawLineAoiCommand = new RelayCommand(async () => await OnDrawAoiAsync(DrawLineAoiTool.ToolId), () => !IsSearchBusy);
@@ -148,6 +159,9 @@ namespace KyFromAboveSTAC
         public ObservableCollection<CollectionCheckViewModel> Collections { get; }
         public ObservableCollection<ResultItemViewModel> Results { get; }
         public ObservableCollection<LayerViewModel> MapLayers { get; }
+
+        /// <summary>Active STAC API sources this search queries. Always has at least the built-in KyFromAbove source.</summary>
+        public ObservableCollection<StacApiSource> ApiSources { get; }
 
         private LayerViewModel _selectedLayer;
         public LayerViewModel SelectedLayer
@@ -372,7 +386,7 @@ namespace KyFromAboveSTAC
             set => SetProperty(ref _downloadPerItemFolder, value, () => DownloadPerItemFolder);
         }
 
-        public bool HasNextPage => !string.IsNullOrEmpty(_nextPageUrl);
+        public bool HasNextPage => _nextPageUrls.Values.Any(v => !string.IsNullOrEmpty(v));
 
         public ICommand SearchCommand { get; }
         public ICommand NextPageCommand { get; }
@@ -390,6 +404,8 @@ namespace KyFromAboveSTAC
         public ICommand BrowseDownloadFolderCommand { get; }
         public ICommand ShowFootprintsCommand { get; }
         public ICommand ToggleSelectAllCommand { get; }
+        public ICommand BringYourOwnApiCommand { get; }
+        public ICommand RemoveApiSourceCommand { get; }
 
         #endregion
 
@@ -401,19 +417,96 @@ namespace KyFromAboveSTAC
             StatusMessage = "Loading collections...";
             try
             {
-                var cols = await _client.GetCollectionsAsync();
+                var sources = ApiSources.ToList();
+                var loaded = new List<CollectionCheckViewModel>();
+                var errors = new List<string>();
+
+                // Load each source independently -- one bad/unreachable "bring your own" API
+                // shouldn't stop the built-in catalog (or any other source) from loading.
+                foreach (var source in sources)
+                {
+                    try
+                    {
+                        var cols = await source.Client.GetCollectionsAsync();
+                        loaded.AddRange(cols.Select(c => new CollectionCheckViewModel(c, source)));
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"{source.Name}: {ex.Message}");
+                    }
+                }
+
                 Collections.Clear();
-                foreach (var c in cols.OrderBy(x => x.TitleOrId, StringComparer.OrdinalIgnoreCase))
-                    Collections.Add(new CollectionCheckViewModel(c));
-                StatusMessage = Collections.Count > 0
-                    ? $"{Collections.Count} collections loaded. Choose filters and search."
-                    : "No collections returned.";
+                foreach (var c in loaded.OrderBy(x => x.Title, StringComparer.OrdinalIgnoreCase))
+                    Collections.Add(c);
+
+                if (Collections.Count > 0)
+                {
+                    StatusMessage = $"{Collections.Count} collections loaded. Choose filters and search.";
+                    if (errors.Count > 0) StatusMessage += " (" + string.Join("; ", errors) + ")";
+                }
+                else
+                {
+                    StatusMessage = errors.Count > 0
+                        ? "Error loading collections: " + string.Join("; ", errors)
+                        : "No collections returned.";
+                }
             }
             catch (Exception ex)
             {
                 StatusMessage = "Error loading collections: " + ex.Message;
             }
             finally { IsSearchBusy = false; }
+        }
+
+        /// <summary>Open the "Bring Your Own API" dialog to add another STAC API alongside the current sources, or replace them all.</summary>
+        private void OnBringYourOwnApi()
+        {
+            var dlg = new AddApiSourceDialog { Owner = System.Windows.Application.Current?.MainWindow };
+            if (dlg.ShowDialog() != true || dlg.Result == AddApiSourceResult.Cancel) return;
+
+            var newSource = new StacApiSource(
+                string.IsNullOrWhiteSpace(dlg.SourceName) ? dlg.BaseUrl : dlg.SourceName,
+                dlg.BaseUrl,
+                isDefault: dlg.Result == AddApiSourceResult.Replace); // sole source after a replace behaves like the default (no "remove" button, no label suffix)
+
+            if (dlg.Result == AddApiSourceResult.Replace)
+            {
+                ApiSources.Clear();
+                ApiSources.Add(newSource);
+                StatusMessage = $"Switched to API source '{newSource.Name}'. Load collections to continue.";
+            }
+            else
+            {
+                ApiSources.Add(newSource);
+                StatusMessage = $"Added API source '{newSource.Name}'. Load collections to include it.";
+            }
+
+            Collections.Clear();
+            Results.Clear();
+            ResultCount = 0;
+            TotalMatched = null;
+            _nextPageUrls.Clear();
+            NotifyPropertyChanged(() => HasNextPage);
+        }
+
+        /// <summary>Remove a "bring your own" source (the default KyFromAbove source can't be removed).</summary>
+        private void OnRemoveApiSource(StacApiSource source)
+        {
+            if (source == null || source.IsDefault) return;
+            ApiSources.Remove(source);
+            _nextPageUrls.Remove(source);
+            NotifyPropertyChanged(() => HasNextPage);
+
+            // Drop any collections/results that came from the removed source so the UI doesn't
+            // show stale entries the user can no longer search against.
+            var stale = Collections.Where(c => c.Source == source).ToList();
+            foreach (var c in stale) Collections.Remove(c);
+            var staleResults = Results.Where(r => r.CollectionId != null &&
+                stale.Any(c => c.Id == r.CollectionId)).ToList();
+            foreach (var r in staleResults) Results.Remove(r);
+
+            StatusMessage = $"Removed API source '{source.Name}'.";
         }
 
         /// <summary>
@@ -923,43 +1016,80 @@ namespace KyFromAboveSTAC
 
             try
             {
-                StacItemCollection page;
+                // Which sources to query, and (for a fresh search) which of their collections to
+                // filter to. If nothing is checked at all, search every source with no collection
+                // filter -- same "search everything" behavior as before multi-source support.
+                var checkedBySource = Collections.Where(c => c.IsChecked)
+                    .GroupBy(c => c.Source)
+                    .ToDictionary(g => g.Key, g => g.Select(c => c.Id).ToList());
+
+                List<StacApiSource> sourcesToSearch;
                 if (reset)
                 {
-                    var query = new StacSearchQuery
-                    {
-                        Collections = Collections.Where(c => c.IsChecked).Select(c => c.Id).ToList(),
-                        IntersectsGeoJson = _intersectsGeoJson,
-                        StartDate = StartDate,
-                        EndDate = EndDate,
-                        FreeText = FreeText,
-                        Limit = Limit
-                    };
-                    page = await _client.SearchAsync(query, ct);
+                    sourcesToSearch = checkedBySource.Count > 0
+                        ? checkedBySource.Keys.ToList()
+                        : ApiSources.ToList();
                 }
                 else
                 {
-                    page = await _client.GetPageAsync(_nextPageUrl, ct);
+                    // Next page: only the sources that actually have a next link.
+                    sourcesToSearch = ApiSources.Where(s => !string.IsNullOrEmpty(_nextPageUrls.GetValueOrDefault(s))).ToList();
                 }
 
-                _nextPageUrl = page?.NextLinkHref;
-                NotifyPropertyChanged(() => HasNextPage);
-
-                if (page?.Features != null)
+                var tasks = sourcesToSearch.Select(async source =>
                 {
-                    foreach (var f in page.Features)
+                    StacItemCollection page;
+                    if (reset)
                     {
-                        var colVM = Collections.FirstOrDefault(c => c.Id == f.Collection);
-                        Results.Add(new ResultItemViewModel(f, colVM?.Collection, loadThumbnail: !ThumbnailsDisabled));
+                        var query = new StacSearchQuery
+                        {
+                            Collections = checkedBySource.TryGetValue(source, out var ids) ? ids : null,
+                            IntersectsGeoJson = _intersectsGeoJson,
+                            StartDate = StartDate,
+                            EndDate = EndDate,
+                            FreeText = FreeText,
+                            Limit = Limit
+                        };
+                        page = await source.Client.SearchAsync(query, ct);
+                    }
+                    else
+                    {
+                        page = await source.Client.GetPageAsync(_nextPageUrls[source], ct);
+                    }
+                    return (source, page);
+                }).ToList();
+
+                var pages = await Task.WhenAll(tasks);
+
+                int totalMatched = 0;
+                bool anyTotalMatched = false;
+                foreach (var (source, page) in pages)
+                {
+                    _nextPageUrls[source] = page?.NextLinkHref;
+
+                    if (page?.Features != null)
+                    {
+                        foreach (var f in page.Features)
+                        {
+                            var colVM = Collections.FirstOrDefault(c => c.Source == source && c.Id == f.Collection)
+                                        ?? Collections.FirstOrDefault(c => c.Id == f.Collection);
+                            Results.Add(new ResultItemViewModel(f, colVM?.Collection, loadThumbnail: !ThumbnailsDisabled));
+                        }
+                    }
+                    if (page?.NumberMatched.HasValue == true)
+                    {
+                        totalMatched += page.NumberMatched.Value;
+                        anyTotalMatched = true;
                     }
                 }
+                NotifyPropertyChanged(() => HasNextPage);
 
                 // Indicate whether any results contain point-cloud assets (for conditional UI tips)
                 HasPointCloudResults = Results.Any(r => IsPointCloudAsset(r.DataAsset));
 
                 ResultCount = Results.Count;
-                TotalMatched = page?.NumberMatched;
-                StatusMessage = _nextPageUrl != null
+                TotalMatched = anyTotalMatched ? totalMatched : (int?)null;
+                StatusMessage = HasNextPage
                     ? $"Showing {Results.Count} of {TotalMatched?.ToString() ?? "?"} matched. (Next page available)"
                     : $"{Results.Count} result(s)" + (TotalMatched.HasValue ? $" of {TotalMatched} matched." : ".");
             }

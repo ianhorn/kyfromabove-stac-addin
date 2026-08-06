@@ -25,26 +25,59 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Collections -->
-        <Expander Grid.Row="0" Header="Collections" IsExpanded="True" Margin="0,0,0,4">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="120"/>
-                </Grid.RowDefinitions>
-                <Button Grid.Row="0" Content="Load collections" Margin="0,2"
-                        Command="{Binding LoadCollectionsCommand}" Padding="4,2" HorizontalAlignment="Left"/>
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Collections}">
+        <!-- API sources + Collections -->
+        <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,4">
+            <Border BorderBrush="#33000000" BorderThickness="0,0,0,1" Padding="0,0,0,6" Margin="0,0,0,4">
+                <StackPanel Orientation="Vertical">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="STAC API:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,4,0"/>
+                        <Button Content="Bring Your Own API..." Command="{Binding BringYourOwnApiCommand}" Padding="6,2"
+                                ToolTip="Add another STAC API alongside the built-in catalog, or replace it entirely."/>
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding ApiSources}" Margin="0,4,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <CheckBox Content="{Binding Title}" IsChecked="{Binding IsChecked}" Margin="0,1"/>
+                                <Border BorderBrush="#55000000" BorderThickness="1" Padding="4,1" Margin="0,0,4,2" Background="#11000000">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="11"/>
+                                        <Button Content="x" Width="16" Height="16" Padding="0" Margin="4,0,0,0" FontSize="9"
+                                                Command="{Binding Path=DataContext.RemoveApiSourceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Visibility="{Binding CanRemove, Converter={StaticResource BoolToVis}}"
+                                                ToolTip="Remove this API source"/>
+                                    </StackPanel>
+                                </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
-            </Grid>
-        </Expander>
+                </StackPanel>
+            </Border>
+
+            <Expander Header="Collections" IsExpanded="True">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="120"/>
+                    </Grid.RowDefinitions>
+                    <Button Grid.Row="0" Content="Load collections" Margin="0,2"
+                            Command="{Binding LoadCollectionsCommand}" Padding="4,2" HorizontalAlignment="Left"/>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Collections}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding DisplayLabel}" IsChecked="{Binding IsChecked}" Margin="0,1"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Expander>
+        </StackPanel>
 
         <!-- AOI -->
         <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,4">
