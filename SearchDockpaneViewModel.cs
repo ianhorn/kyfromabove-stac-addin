@@ -802,15 +802,30 @@ namespace KyFromAboveSTAC
                     var item = r;
                     var destDir = DownloadPerItemFolder ? Path.Combine(DownloadFolder, item.Item.Id) : DownloadFolder;
                     var fname = Services.DownloadService.SuggestFileName(item.DataAsset, item.Item);
-                    // If flat download, avoid filename collisions by prefixing with item id,
-                    // but don't double-prefix if the suggested name already starts with the id.
+                    // If flat download, avoid filename collisions by prefixing with item id, but
+                    // don't duplicate any part of the id that's already reflected in the suggested
+                    // file name. E.g. id "1786123019933_N074E297_LAS_Phase2.copc" and asset file
+                    // "N074E297_LAS_Phase2.copc.laz" share the tile-name portion -- prefixing with
+                    // just the non-overlapping "1786123019933" avoids
+                    // "1786123019933_N074E297_LAS_Phase2.copc_N074E297_LAS_Phase2.copc.laz".
                     if (!DownloadPerItemFolder && !string.IsNullOrWhiteSpace(item.Item.Id))
                     {
-                        var prefix = item.Item.Id + "_";
-                        if (!fname.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
-                            !string.Equals(fname, item.Item.Id, StringComparison.OrdinalIgnoreCase))
+                        var id = item.Item.Id;
+                        var stem = Path.GetFileNameWithoutExtension(fname);
+
+                        var uniquePart = id;
+                        if (!string.IsNullOrEmpty(stem))
                         {
-                            fname = prefix + fname;
+                            var overlapIndex = id.IndexOf(stem, StringComparison.OrdinalIgnoreCase);
+                            if (overlapIndex >= 0)
+                                uniquePart = id.Substring(0, overlapIndex).TrimEnd('_', '-', '.');
+                        }
+
+                        if (!string.IsNullOrEmpty(uniquePart) &&
+                            !fname.StartsWith(uniquePart + "_", StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(fname, uniquePart, StringComparison.OrdinalIgnoreCase))
+                        {
+                            fname = uniquePart + "_" + fname;
                         }
                     }
                     var dest = Path.Combine(destDir, fname);
