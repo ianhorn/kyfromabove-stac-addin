@@ -32,7 +32,7 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="STAC API:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,4,0"/>
                         <Button Content="Bring Your Own API..." Command="{Binding BringYourOwnApiCommand}" Padding="6,2"
-                                ToolTip="Add another STAC API alongside the built-in catalog, or replace it entirely."/>
+                                ToolTip="Add another STAC API alongside the built-in catalog, or replace it entirely. Experimental -- may not work as expected with all STAC APIs."/>
                     </StackPanel>
                     <ItemsControl ItemsSource="{Binding ApiSources}" Margin="0,4,0,0">
                         <ItemsControl.ItemsPanel>
