@@ -43,6 +43,6 @@ dotnet build -p:SignAddin=false
 
 ## Verifying the install
 
-Open ArcGIS Pro and look for the **KyFromAbove-STAC** ribbon tab with a **STAC Search** button. If
+Open ArcGIS Pro and look for the **KyFromAbove-STAC-AddIn** ribbon tab with a **STAC Search** button. If
 it's missing, confirm the build succeeded with no errors and that ArcGIS Pro was restarted after
 the first build.

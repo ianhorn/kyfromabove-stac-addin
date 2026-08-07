@@ -4,7 +4,7 @@
 aerial imagery, DEM, and LiDAR point cloud data from the [Kentucky From Above](https://kyfromabove.ky.gov/)
 STAC API -- without leaving ArcGIS Pro.
 
-It adds a dockable **KyFromAbove-STAC** pane with tools to build an area of interest from the map,
+It adds a dockable **KyFromAbove-STAC-AddIn** pane with tools to build an area of interest from the map,
 filter by collection and date, run a [STAC](https://stacspec.org/) search, and add or download the
 results, all backed by a standard [STAC API](https://github.com/radiantearth/stac-api-spec).
 
