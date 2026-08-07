@@ -8,9 +8,11 @@ point cloud data.
 Published at **https://ianhorn.github.io/kyfromabove-stac-addin/**, built with
 [MkDocs](https://www.mkdocs.org/) and the [Material theme](https://squidfunk.github.io/mkdocs-material/).
 
-Markdown source lives in [`docs-src/`](docs-src/index.md); the `docs/` folder is the built HTML
-site itself, served straight from the repo via GitHub Pages (Settings &rarr; Pages &rarr; Deploy
-from a branch &rarr; `master` / `/docs`).
+Markdown source lives in [`docs-src/`](docs-src/index.md). A GitHub Actions workflow
+([`.github/workflows/docs.yml`](.github/workflows/docs.yml)) builds the MkDocs site and deploys it
+to GitHub Pages automatically on every push to `master` that touches `docs-src/`, `mkdocs.yml`, or
+`docs-requirements.txt` — the built `docs/` output is never committed, it's ephemeral CI artifact
+only. Repo Settings &rarr; Pages &rarr; Source must be set to **GitHub Actions**.
 
 To preview locally:
 
@@ -21,12 +23,11 @@ mkdocs serve
 
 Then open <http://127.0.0.1:8000>.
 
-To publish an update, rebuild and commit the regenerated `docs/` folder along with your `docs-src/`
-changes:
+To publish an update, just commit and push your `docs-src/` changes — the workflow rebuilds and
+redeploys automatically:
 
 ```bash
-mkdocs build
-git add docs docs-src
+git add docs-src
 git commit -m "docs: update"
 git push
 ```

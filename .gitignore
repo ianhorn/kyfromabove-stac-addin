@@ -374,10 +374,10 @@ FodyWeavers.xsd
 *.cer
 KyFromAbove.pfx
 
-# MkDocs local virtualenv, and mkdocs' own default output path as a safety net (mkdocs.yml sets
-# site_dir to docs/ instead). NOTE: docs/ is intentionally NOT ignored -- it's the built site
-# output (docs_dir is docs-src/) and must be committed for GitHub Pages' "Deploy from a branch ->
-# /docs" option to serve it.
+# MkDocs build output (docs_dir is docs-src/, site_dir is docs/) and local virtualenv. The
+# GitHub Actions workflow (.github/workflows/docs.yml) builds and deploys docs/ to GitHub
+# Pages on every push -- it's never committed.
+docs/
 site/
 .venv/
 venv/
