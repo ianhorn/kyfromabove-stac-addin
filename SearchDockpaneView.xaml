@@ -83,7 +83,7 @@
         <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,4">
             <TextBlock Text="Area of interest" FontWeight="SemiBold" Margin="0,0,0,2"/>
             <WrapPanel Orientation="Horizontal" Margin="0,0,0,2">
-                <ToggleButton x:Name="DrawAoiButton" Content="Draw ▾" Padding="6,2" Margin="0,0,2,0"
+                <ToggleButton x:Name="DrawAoiButton" Content="Draw..." Padding="6,2" Margin="0,0,2,0"
                         ToolTip="Draw a point, line, or polygon AOI on the map."/>
                 <Popup x:Name="DrawAoiPopup" PlacementTarget="{Binding ElementName=DrawAoiButton}"
                        IsOpen="{Binding IsChecked, ElementName=DrawAoiButton, Mode=TwoWay}"
@@ -256,7 +256,7 @@
                         Visibility="{Binding HasNextPage, Converter={StaticResource BoolToVis}}"/>
             </StackPanel>
             <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
-                <ToggleButton x:Name="ParallelDownloadsButton" Content="Parallel Downloads ▾" Padding="6,2"
+                <ToggleButton x:Name="ParallelDownloadsButton" Content="Parallel Downloads..." Padding="6,2"
                         ToolTip="Select number of parallel downloads (cores/threads). Default: 75%."/>
                 <Popup x:Name="ParallelDownloadsPopup" PlacementTarget="{Binding ElementName=ParallelDownloadsButton}"
                        IsOpen="{Binding IsChecked, ElementName=ParallelDownloadsButton, Mode=TwoWay}"
@@ -271,7 +271,9 @@
                           VerticalContentAlignment="Center" Visibility="{Binding IsCustomThreadCount, Converter={StaticResource BoolToVis}}"
                           ToolTip="Enter a custom number of parallel downloads."/>
                 <CheckBox IsChecked="{Binding DownloadPerItemFolder}" VerticalAlignment="Center" Margin="12,0,0,0"
-                          ToolTip="Download each item into its own subfolder"/>
+                          ToolTip="Download each item into its own subfolder">
+                    <TextBlock Text="Item folders" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                </CheckBox>
             </StackPanel>
         </Grid>
     </Grid>

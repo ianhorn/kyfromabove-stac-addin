@@ -4,7 +4,13 @@ site_author: KyFromAbove Tools
 site_url: https://ianhorn.github.io/kyfromabove-stac-addin/
 repo_url: https://github.com/ianhorn/kyfromabove-stac-addin
 repo_name: ianhorn/kyfromabove-stac-addin
-edit_uri: edit/master/docs/
+edit_uri: edit/master/docs-src/
+
+# Markdown source lives in docs-src/; built HTML goes to docs/ so GitHub Pages can serve it
+# directly via Settings -> Pages -> Deploy from a branch -> master /docs (no gh-pages branch,
+# no separate deploy step -- just commit the rebuilt docs/ folder along with your changes).
+docs_dir: docs-src
+site_dir: docs
 
 theme:
   name: material

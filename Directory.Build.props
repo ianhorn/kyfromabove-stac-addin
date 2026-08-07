@@ -1,15 +1,11 @@
 <Project>
-  <!-- Centralize output paths so all projects produce artifacts in a consistent location.
-	   This helps avoid multiple debug output locations. Keep minimal to avoid interfering
-	   with the ArcGIS SDK targets that expect TargetPath to be valid. -->
-  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-	<!-- Use TargetFramework (when present) so multi-targeting projects remain separated -->
-	<OutputPath>bin\$(Configuration)\$(TargetFramework)\</OutputPath>
-	<IntermediateOutputPath>obj\$(Configuration)\$(TargetFramework)\</IntermediateOutputPath>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-	<OutputPath>bin\$(Configuration)\$(TargetFramework)\</OutputPath>
-	<IntermediateOutputPath>obj\$(Configuration)\$(TargetFramework)\</IntermediateOutputPath>
-  </PropertyGroup>
+  <!-- This originally forced OutputPath/IntermediateOutputPath directly to keep two sibling
+       .csproj files (an old, since-deleted duplicate project) from sharing the same obj/bin
+       intermediate folder. Only one project remains now, so that's no longer needed; and
+       overriding OutputPath/IntermediateOutputPath directly (instead of the Base* versions)
+       bypasses the SDK's own Configuration/TargetFramework/RuntimeIdentifier-aware path
+       composition, which the WPF markup compiler and ArcGIS Pro SDK targets rely on. Left empty
+       (rather than deleted) in case another project is ever added to this folder and the same
+       sharing problem needs solving again; use Base*OutputPath, not OutputPath/IntermediateOutputPath,
+       if so. -->
 </Project>
