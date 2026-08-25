@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- **ArcGIS Pro 3.7** or later (the add-in manifest targets `desktopVersion="3.7.0.1901"`).
+- **ArcGIS Pro 3.6** or later (the add-in manifest targets `desktopVersion="3.6"`).
 - **ArcGIS Pro SDK for .NET** installed (adds the Visual Studio project templates and the
   `Esri.ProApp.SDK.Desktop.targets` build integration this project relies on).
 - **Visual Studio 2022** with the .NET desktop development workload.

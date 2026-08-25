@@ -7,7 +7,7 @@
         xmlns="http://schemas.esri.com/DADF/Registry"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://schemas.esri.com/DADF/Registry file:///C:/Program%20Files/ArcGIS/Pro/bin/ArcGIS.Desktop.Framework.xsd">
-  <AddInInfo id="{8f3a2c1d-4b5e-4a6f-9c01-2d3e4f5a6b7c}" version="1.0.0.0" desktopVersion="3.7.0.1901" product="ArcGISPro">
+  <AddInInfo id="{8f3a2c1d-4b5e-4a6f-9c01-2d3e4f5a6b7c}" version="1.0.0.0" desktopVersion="3.6" product="ArcGISPro">
     <Name>KyFromAbove-STAC Browser</Name>
     <Description>Search and download aerial imagery, DEM, and LiDAR point cloud data from the Kentucky From Above STAC API.</Description>
     <Image>Images\AddInDesktop32.png</Image>
