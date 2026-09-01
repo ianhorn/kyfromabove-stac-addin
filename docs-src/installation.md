@@ -1,21 +1,51 @@
 # Installation
 
+## Which branch do I need?
+
+This add-in targets different ArcGIS Pro releases on different branches, because Esri ties each
+Pro release to a specific .NET version and Visual Studio requirement:
+
+| You have               | Branch        | Target framework | Visual Studio                | `Config.daml` `desktopVersion` |
+|-------------------------|---------------|-------------------|-------------------------------|----------------------------------|
+| ArcGIS Pro 3.6.x         | `for-v3.6.x`  | `net8.0-windows`  | VS 2022, 17.13+                | `3.6`                            |
+| ArcGIS Pro 3.7 or later  | `master`      | `net10.0-windows` | VS 2026 ("18"), 18.4.1+        | `3.7.0.1901`                     |
+
+Check out the branch that matches your installed Pro version *before* building:
+
+```bash
+git checkout for-v3.6.x   # for ArcGIS Pro 3.6.x
+# or
+git checkout master       # for ArcGIS Pro 3.7+
+```
+
+The two branches reference ArcGIS Pro's assemblies by direct file path
+(`C:\Program Files\ArcGIS\Pro\bin\...`), not a versioned NuGet package, so whichever Pro version is
+actually installed on your machine is what gets compiled against -- building `for-v3.6.x` on a
+machine that only has Pro 3.7 installed (or vice versa) will fail with assembly version mismatch
+errors (`CS1705`), not produce a working add-in for the version you wanted.
+
 ## Requirements
 
-- **ArcGIS Pro 3.6** or later (the add-in manifest targets `desktopVersion="3.6"`).
+- **ArcGIS Pro 3.6** or later (the add-in manifest targets `desktopVersion="3.6"` on this branch;
+  see [Which branch do I need?](#which-branch-do-i-need) above).
 - **ArcGIS Pro SDK for .NET** installed (adds the Visual Studio project templates and the
   `Esri.ProApp.SDK.Desktop.targets` build integration this project relies on).
-- **Visual Studio 2022** with the .NET desktop development workload.
+- **Visual Studio 2022, version 17.13 or later** -- this is what Esri certifies the Pro 3.6 SDK
+  against. A newer major Visual Studio version built for a later Pro release may or may not work.
 
 ## Build from source
 
-1. Clone the repository:
+1. Clone the repository and check out the branch matching your Pro version (see above):
 
     ```bash
     git clone https://github.com/ianhorn/kyfromabove-stac-addin.git
+    cd kyfromabove-stac-addin
+    git checkout for-v3.6.x
     ```
 
-2. Open `kyfromabove-ext.sln` (or `kyfromabove-ext.slnx`) in Visual Studio.
+2. Open `kyfromabove-ext.sln` in Visual Studio. Use the classic `.sln`, not `kyfromabove-ext.slnx`
+   -- the `.slnx` format only became stable by default in VS 17.14, and 17.13 (this branch's
+   minimum) only supports it as an opt-in preview feature.
 3. Build the `KyFromAboveSTACAddin` project (Debug or Release). The ArcGIS Pro SDK's build targets
    package the compiled assembly, `Config.daml`, and the toolbar images into an `.esriAddinX` file
    and register it with ArcGIS Pro automatically.
