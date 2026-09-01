@@ -13,8 +13,7 @@ downloads still in progress (already-completed files are kept).
 Both raster (COG) and point-cloud (`.laz`/`.las`, etc.) assets can be downloaded this way, even
 though point-clouds can't be added directly to the map.
 
-<!-- SCREENSHOT: images/downloads-progress.png -- the download progress dialog mid-run, showing
-     several assets with per-asset status and the Cancel button -->
+![Download status after a batch completes: succeeded/failed counts and total size written](images/downloads-progress.jpg)
 
 ## Parallel Downloads
 
@@ -36,8 +35,7 @@ The **Item folders** checkbox next to **Parallel Downloads** controls folder lay
   prefixed with the item ID to avoid collisions.
 - **Checked** -- each item gets its own subfolder, named after the item ID.
 
-<!-- SCREENSHOT: images/downloads-parallel-options.png -- the bottom of the pane showing the
-     Parallel Downloads dropdown open and the Item folders checkbox/label -->
+![The Parallel Downloads dropdown open, next to the Item folders checkbox](images/downloads-parallel-options.jpg)
 
 ## Downloading a single item
 

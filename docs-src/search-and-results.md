@@ -13,8 +13,7 @@
     When **Limit** is above 50, thumbnail loading is automatically disabled for that search to avoid
     a burst of extra network requests -- a note appears under the Search button when this is active.
 
-<!-- SCREENSHOT: images/search-filters.png -- the filters area: Collections checklist, AOI summary,
-     collapsed Date range, and Limit dropdown -->
+![The filters area: Collections checklist, AOI summary, and Limit dropdown](images/search-filters.jpg)
 
 ## Reading the results
 
@@ -27,9 +26,7 @@
   downloaded but not added directly to the map.
 - **Next page**, next to the status message at the bottom, appears when more results are available.
 
-<!-- SCREENSHOT: images/search-results-list.png -- a populated results list with several rows,
-     thumbnails visible, showing the summary line and Select All / Download Selected / Show
-     Footprints buttons -->
+![A populated results list with thumbnails and the Select All / Download Selected / Show Footprints buttons](images/search-results-list.jpg)
 
 ## Each result row
 
@@ -44,5 +41,4 @@
     - **Zoom** -- zooms the map to the item's bounding box.
     - **Footprint** -- draws just this item's footprint on the map.
 
-<!-- SCREENSHOT: images/search-result-row.png -- close-up of a single result row with the hover
-     tooltip open showing the pretty-printed STAC item JSON, and the per-item button row visible -->
+![A result row's hover tooltip showing the pretty-printed STAC item JSON](images/search-result-row.jpg)
