@@ -13,6 +13,9 @@
     When **Limit** is above 50, thumbnail loading is automatically disabled for that search to avoid
     a burst of extra network requests -- a note appears under the Search button when this is active.
 
+<!-- SCREENSHOT: images/search-filters.png -- the filters area: Collections checklist, AOI summary,
+     collapsed Date range, and Limit dropdown -->
+
 ## Reading the results
 
 - The summary line above the results (e.g. *"Showing 50 of 812 matched"*) shows how many results
@@ -23,6 +26,10 @@
 - If any point-cloud (`.laz`/`.las`) results are present, a tip explains that they can be
   downloaded but not added directly to the map.
 - **Next page**, next to the status message at the bottom, appears when more results are available.
+
+<!-- SCREENSHOT: images/search-results-list.png -- a populated results list with several rows,
+     thumbnails visible, showing the summary line and Select All / Download Selected / Show
+     Footprints buttons -->
 
 ## Each result row
 
@@ -36,3 +43,6 @@
     - **Download** -- prompts for a save location and downloads that one asset.
     - **Zoom** -- zooms the map to the item's bounding box.
     - **Footprint** -- draws just this item's footprint on the map.
+
+<!-- SCREENSHOT: images/search-result-row.png -- close-up of a single result row with the hover
+     tooltip open showing the pretty-printed STAC item JSON, and the per-item button row visible -->

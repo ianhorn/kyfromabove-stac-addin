@@ -8,6 +8,9 @@ every active API source and populate the checkbox list. Collection names are sor
 - **Nothing checked** &rarr; search runs against *every* collection from every active source.
 - **Some checked** &rarr; search is limited to just those collections.
 
+<!-- SCREENSHOT: images/collections-list.png -- the loaded, alphabetized collections checklist,
+     with a couple of boxes checked -->
+
 ## Bring Your Own API
 
 !!! warning "Experimental"
@@ -29,6 +32,9 @@ STAC API (for example, a self-hosted [stac-fastapi](https://github.com/stac-util
 Active sources are shown as small chips under the button. Any source you added (not the built-in
 default) has a small **x** to remove it, which also clears any collections/results that came from
 it.
+
+<!-- SCREENSHOT: images/bring-your-own-api-dialog.png -- the Bring Your Own API dialog open,
+     showing the Name/URL fields, the experimental warning banner, and the Add/Replace buttons -->
 
 When more than one source is active, collections from non-default sources are labeled
 `Title · Source Name` in the checklist so they're never ambiguous.
