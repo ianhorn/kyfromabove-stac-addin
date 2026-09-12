@@ -15,7 +15,6 @@ namespace KyFromAboveSTAC
         Executable,
         Python,
         PowerShell,
-        Batch,
         Shell
     }
 
@@ -26,7 +25,6 @@ namespace KyFromAboveSTAC
             ["Executable"] = "No install needed. Windows only. A single, self-contained .exe -- double-click to run.",
             ["Python"] = "Needs Python 3 on the machine that runs it.",
             ["PowerShell"] = "Windows only, no install needed.",
-            ["Batch"] = "Windows only, no install needed (uses curl.exe, bundled with Windows 10/11).",
             ["Shell"] = "macOS/Linux/WSL. Needs curl."
         };
 
@@ -57,7 +55,6 @@ namespace KyFromAboveSTAC
                 {
                     "Python" => ExportScriptFormat.Python,
                     "PowerShell" => ExportScriptFormat.PowerShell,
-                    "Batch" => ExportScriptFormat.Batch,
                     "Shell" => ExportScriptFormat.Shell,
                     _ => ExportScriptFormat.Executable
                 };

@@ -944,7 +944,7 @@ namespace KyFromAboveSTAC
         }
 
         /// <summary>
-        /// Export a stand-alone download kit (an .exe, or a .py/.ps1/.bat/.sh script) for the
+        /// Export a stand-alone download kit (an .exe, or a .py/.ps1/.sh script) for the
         /// selected (or all) downloadable results, to a folder the user picks -- e.g. for very
         /// large batches, running on another machine, or scheduling for later. Uses the same
         /// item selection and destination-naming logic as OnDownloadAllAsync.
@@ -1018,10 +1018,6 @@ namespace KyFromAboveSTAC
                         case ExportScriptFormat.PowerShell:
                             ext = ".ps1";
                             script = BuildPowerShellDownloadScript(assets, destFolder, concurrency);
-                            break;
-                        case ExportScriptFormat.Batch:
-                            ext = ".bat";
-                            script = BuildBatchDownloadScript(assets, destFolder);
                             break;
                         default:
                             ext = ".sh";
@@ -1185,41 +1181,6 @@ namespace KyFromAboveSTAC
             lines.Add("if __name__ == \"__main__\":");
             lines.Add("    main()");
             return string.Join("\n", lines);
-        }
-
-        /// <summary>
-        /// Build a Windows .bat download script using curl.exe (bundled with Windows 10 1803+
-        /// and Windows 11). Downloads run sequentially -- .bat has no good native concurrency
-        /// primitive, and looping curl calls one at a time is simple and reliable.
-        /// </summary>
-        private static string BuildBatchDownloadScript(List<(string Url, string RelPath)> assets, string destFolder)
-        {
-            var lines = new List<string>
-            {
-                "@echo off",
-                "rem KyFromAbove-STAC stand-alone download script",
-                $"rem Generated {DateTime.Now:yyyy-MM-dd HH:mm} -- {assets.Count} asset(s).",
-                "rem Edit DESTFOLDER below if needed, then double-click this file to run.",
-                "",
-                $"set DESTFOLDER={destFolder}",
-                "if not exist \"%DESTFOLDER%\" mkdir \"%DESTFOLDER%\"",
-                ""
-            };
-            int i = 0;
-            foreach (var a in assets)
-            {
-                i++;
-                var relPathWin = a.RelPath.Replace('/', '\\');
-                var dirPart = Path.GetDirectoryName(relPathWin);
-                lines.Add($"echo [{i}/{assets.Count}] {relPathWin}");
-                if (!string.IsNullOrEmpty(dirPart))
-                    lines.Add($"if not exist \"%DESTFOLDER%\\{dirPart}\" mkdir \"%DESTFOLDER%\\{dirPart}\" 2>nul");
-                lines.Add($"curl.exe -L -o \"%DESTFOLDER%\\{relPathWin}\" \"{a.Url}\"");
-                lines.Add("");
-            }
-            lines.Add("echo Done -> %DESTFOLDER%");
-            lines.Add("pause");
-            return string.Join("\r\n", lines);
         }
 
         /// <summary>
