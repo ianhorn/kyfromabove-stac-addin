@@ -21,18 +21,33 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- Title + Help -->
+        <Grid Grid.Row="0" Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="KyFromAbove-STAC" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" Content="Help" Command="{Binding OpenDocsCommand}" Padding="8,2"
+                    ToolTip="Open the full documentation site in your browser."/>
+        </Grid>
+
         <!-- API sources + Collections -->
-        <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,4">
+        <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,4">
             <Border BorderBrush="#33000000" BorderThickness="0,0,0,1" Padding="0,0,0,6" Margin="0,0,0,4">
                 <StackPanel Orientation="Vertical">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="STAC API:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,4,0"/>
                         <Button Content="Bring Your Own API..." Command="{Binding BringYourOwnApiCommand}" Padding="6,2"
                                 ToolTip="Add another STAC API alongside the built-in catalog, or replace it entirely. Experimental -- may not work as expected with all STAC APIs."/>
+                        <Button Content="?" Command="{Binding OpenDocsCommand}" CommandParameter="collections-and-sources"
+                                Width="18" Height="18" Padding="0" FontSize="10" Margin="4,0,0,0" Opacity="0.7"
+                                ToolTip="Help: Collections &amp; Sources"/>
                     </StackPanel>
                     <ItemsControl ItemsSource="{Binding ApiSources}" Margin="0,4,0,0">
                         <ItemsControl.ItemsPanel>
@@ -58,7 +73,15 @@
                 </StackPanel>
             </Border>
 
-            <Expander Header="Collections" IsExpanded="True">
+            <Expander IsExpanded="True">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Collections"/>
+                        <Button Content="?" Command="{Binding OpenDocsCommand}" CommandParameter="collections-and-sources"
+                                Width="18" Height="18" Padding="0" FontSize="10" Margin="4,0,0,0" Opacity="0.7"
+                                ToolTip="Help: Collections &amp; Sources"/>
+                    </StackPanel>
+                </Expander.Header>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -80,8 +103,13 @@
         </StackPanel>
 
         <!-- AOI -->
-        <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,4">
-            <TextBlock Text="Area of interest" FontWeight="SemiBold" Margin="0,0,0,2"/>
+        <StackPanel Grid.Row="2" Orientation="Vertical" Margin="0,0,0,4">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                <TextBlock Text="Area of interest" FontWeight="SemiBold"/>
+                <Button Content="?" Command="{Binding OpenDocsCommand}" CommandParameter="area-of-interest"
+                        Width="18" Height="18" Padding="0" FontSize="10" Margin="4,0,0,0" Opacity="0.7"
+                        ToolTip="Help: Area of Interest"/>
+            </StackPanel>
             <WrapPanel Orientation="Horizontal" Margin="0,0,0,2">
                 <ToggleButton x:Name="DrawAoiButton" Content="Draw..." Padding="6,2" Margin="0,0,2,0"
                         ToolTip="Draw a point, line, or polygon AOI on the map."/>
@@ -123,7 +151,15 @@
         </StackPanel>
 
         <!-- Date range (collapsed by default; filtering still applies if dates are set) -->
-        <Expander Grid.Row="2" Header="Date range (optional)" IsExpanded="False" Margin="0,0,0,4">
+        <Expander Grid.Row="3" IsExpanded="False" Margin="0,0,0,4">
+            <Expander.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Date range (optional)"/>
+                    <Button Content="?" Command="{Binding OpenDocsCommand}" CommandParameter="search-and-results"
+                            Width="18" Height="18" Padding="0" FontSize="10" Margin="4,0,0,0" Opacity="0.7"
+                            ToolTip="Help: Search &amp; Results"/>
+                </StackPanel>
+            </Expander.Header>
             <Grid Margin="0,4,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -141,7 +177,7 @@
         </Expander>
 
         <!-- Search row -->
-        <StackPanel Grid.Row="3" Margin="0,0,0,6">
+        <StackPanel Grid.Row="4" Margin="0,0,0,6">
             <Grid Margin="0,0,0,2">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -164,14 +200,23 @@
         </StackPanel>
 
         <!-- Results header + list -->
-        <Grid Grid.Row="4">
+        <Grid Grid.Row="5">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <TextBlock Text="{Binding ResultsSummaryText}" FontWeight="SemiBold" Margin="0,0,0,4" Grid.Row="0"/>
+            <Grid Grid.Row="0" Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding ResultsSummaryText}" FontWeight="SemiBold"/>
+                <Button Grid.Column="1" Content="?" Command="{Binding OpenDocsCommand}" CommandParameter="downloads"
+                        Width="18" Height="18" Padding="0" FontSize="10" Margin="4,0,0,0" Opacity="0.7"
+                        ToolTip="Help: Downloads"/>
+            </Grid>
             <Grid Margin="0,0,0,2" Grid.Row="1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -245,7 +290,7 @@
     </Grid>
 
                 <!-- Status bar -->
-        <Grid Grid.Row="5" Margin="0,4,0,0">
+        <Grid Grid.Row="6" Margin="0,4,0,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
