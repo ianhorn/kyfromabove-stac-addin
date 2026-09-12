@@ -5,6 +5,7 @@
  */
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace KyFromAboveSTAC
 {
@@ -19,10 +20,20 @@ namespace KyFromAboveSTAC
 
     public partial class ExportScriptDialog : Window
     {
+        private static readonly System.Collections.Generic.Dictionary<string, string> FormatHints = new()
+        {
+            ["Executable"] = "No install needed. Windows only. A single, self-contained .exe -- double-click to run.",
+            ["Python"] = "Needs Python 3 on the machine that runs it.",
+            ["PowerShell"] = "Windows only, no install needed.",
+            ["Batch"] = "Windows only, no install needed (uses curl.exe, bundled with Windows 10/11).",
+            ["Shell"] = "macOS/Linux/WSL. Needs curl."
+        };
+
         public ExportScriptDialog(string defaultDestinationFolder)
         {
             InitializeComponent();
             DestinationBox.Text = defaultDestinationFolder ?? "";
+            UpdateFormatHint();
             DestinationBox.Focus();
             DestinationBox.CaretIndex = DestinationBox.Text.Length;
         }
@@ -32,16 +43,28 @@ namespace KyFromAboveSTAC
         {
             get
             {
-                if (PythonOption.IsChecked == true) return ExportScriptFormat.Python;
-                if (PowerShellOption.IsChecked == true) return ExportScriptFormat.PowerShell;
-                if (BatchOption.IsChecked == true) return ExportScriptFormat.Batch;
-                if (ShellOption.IsChecked == true) return ExportScriptFormat.Shell;
-                return ExportScriptFormat.Executable;
+                var tag = (FormatCombo.SelectedItem as ComboBoxItem)?.Tag as string;
+                return tag switch
+                {
+                    "Python" => ExportScriptFormat.Python,
+                    "PowerShell" => ExportScriptFormat.PowerShell,
+                    "Batch" => ExportScriptFormat.Batch,
+                    "Shell" => ExportScriptFormat.Shell,
+                    _ => ExportScriptFormat.Executable
+                };
             }
         }
 
         /// <summary>Folder downloads (and the generated script/exe itself) will be written to.</summary>
         public string DestinationFolder => DestinationBox.Text?.Trim()?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        private void FormatCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateFormatHint();
+
+        private void UpdateFormatHint()
+        {
+            var tag = (FormatCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "Executable";
+            FormatHintText.Text = FormatHints.TryGetValue(tag, out var hint) ? hint : "";
+        }
 
         private void Browse_Click(object sender, RoutedEventArgs e)
         {
