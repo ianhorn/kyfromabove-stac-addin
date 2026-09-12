@@ -6,6 +6,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace KyFromAboveSTAC
 {
@@ -29,10 +30,18 @@ namespace KyFromAboveSTAC
             ["Shell"] = "macOS/Linux/WSL. Needs curl."
         };
 
+        private static readonly SolidColorBrush SelectedBackground = new(Color.FromRgb(0x00, 0x78, 0xD7));
+        private static readonly SolidColorBrush UnselectedBackground = Brushes.White;
+        private static readonly SolidColorBrush UnselectedForeground = Brushes.Black;
+        private static readonly SolidColorBrush UnselectedBorder = Brushes.Gray;
+
+        private Button _selectedFormatButton;
+
         public ExportScriptDialog(string defaultDestinationFolder)
         {
             InitializeComponent();
             DestinationBox.Text = defaultDestinationFolder ?? "";
+            _selectedFormatButton = ExecutableButton;
             UpdateFormatHint();
             DestinationBox.Focus();
             DestinationBox.CaretIndex = DestinationBox.Text.Length;
@@ -43,7 +52,7 @@ namespace KyFromAboveSTAC
         {
             get
             {
-                var tag = (FormatCombo.SelectedItem as ComboBoxItem)?.Tag as string;
+                var tag = _selectedFormatButton?.Tag as string;
                 return tag switch
                 {
                     "Python" => ExportScriptFormat.Python,
@@ -58,16 +67,25 @@ namespace KyFromAboveSTAC
         /// <summary>Folder downloads (and the generated script/exe itself) will be written to.</summary>
         public string DestinationFolder => DestinationBox.Text?.Trim()?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-        private void FormatCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateFormatHint();
+        private void FormatButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button clicked) return;
+            if (_selectedFormatButton != null)
+            {
+                _selectedFormatButton.Background = UnselectedBackground;
+                _selectedFormatButton.Foreground = UnselectedForeground;
+                _selectedFormatButton.BorderBrush = UnselectedBorder;
+            }
+            clicked.Background = SelectedBackground;
+            clicked.Foreground = Brushes.White;
+            clicked.BorderBrush = SelectedBackground;
+            _selectedFormatButton = clicked;
+            UpdateFormatHint();
+        }
 
         private void UpdateFormatHint()
         {
-            // ComboBoxItem's IsSelected="True" (set in XAML on the default item) fires
-            // SelectionChanged synchronously during InitializeComponent(), before later-declared
-            // elements like FormatHintText are wired up yet -- guard against that, and rely on
-            // the explicit UpdateFormatHint() call after InitializeComponent() in the ctor instead.
-            if (FormatHintText == null) return;
-            var tag = (FormatCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "Executable";
+            var tag = _selectedFormatButton?.Tag as string ?? "Executable";
             FormatHintText.Text = FormatHints.TryGetValue(tag, out var hint) ? hint : "";
         }
 

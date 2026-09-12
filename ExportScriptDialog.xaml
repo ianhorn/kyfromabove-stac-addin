@@ -8,12 +8,35 @@
         ShowInTaskbar="False"
         Background="White">
     <!--
-        Every text-bearing control below sets its own Foreground/Background explicitly.
-        This dialog runs inside ArcGIS Pro's process, which defines its own app-wide implicit
-        styles for common controls (aimed at Pro's own dark ribbon/dockpane chrome); without
-        local overrides here, RadioButton labels rendered washed-out gray-on-white and TextBox
-        rendered white-on-black, both unreadable against this dialog's plain white background.
+        ArcGIS Pro defines its own app-wide implicit ControlTemplates (aimed at its own dark
+        ribbon/dockpane chrome), which apply to every window in the process, not just its own
+        docked panes. Setting Background/Foreground locally on a RadioButton or ComboBox only
+        reached the parts of Pro's template that happen to route through TemplateBinding; the
+        ComboBox popup's own chrome ignored it entirely and stayed dark-on-dark. The TextBox
+        style below fully replaces Pro's template with a plain one so every setter actually
+        takes effect; the format picker avoids the problem altogether by using plain Buttons,
+        whose chrome Pro does not reskin (see Cancel/Export below, which already render fine).
     -->
+    <Window.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="BorderBrush" Value="Gray"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -34,14 +57,23 @@
         </TextBlock>
 
         <TextBlock Grid.Row="1" Text="Output type" FontWeight="SemiBold" Foreground="Black" Margin="0,0,0,4"/>
-        <ComboBox Grid.Row="2" x:Name="FormatCombo" Margin="0,0,0,2" Background="White" Foreground="Black"
-                  SelectionChanged="FormatCombo_SelectionChanged">
-            <ComboBoxItem Content="Executable (.exe)" Tag="Executable" Foreground="Black" IsSelected="True"/>
-            <ComboBoxItem Content="Python script (.py)" Tag="Python" Foreground="Black"/>
-            <ComboBoxItem Content="PowerShell script (.ps1)" Tag="PowerShell" Foreground="Black"/>
-            <ComboBoxItem Content="Batch file (.bat)" Tag="Batch" Foreground="Black"/>
-            <ComboBoxItem Content="Shell script (.sh)" Tag="Shell" Foreground="Black"/>
-        </ComboBox>
+        <StackPanel Grid.Row="2" x:Name="FormatButtonsPanel" Orientation="Vertical" Margin="0,0,0,2">
+            <Button x:Name="ExecutableButton" Tag="Executable" Content="Executable (.exe)" Click="FormatButton_Click"
+                    HorizontalContentAlignment="Left" Padding="8,4" Margin="0,0,0,2"
+                    Background="#0078D7" Foreground="White" BorderBrush="#0078D7"/>
+            <Button x:Name="PythonButton" Tag="Python" Content="Python script (.py)" Click="FormatButton_Click"
+                    HorizontalContentAlignment="Left" Padding="8,4" Margin="0,0,0,2"
+                    Background="White" Foreground="Black" BorderBrush="Gray"/>
+            <Button x:Name="PowerShellButton" Tag="PowerShell" Content="PowerShell script (.ps1)" Click="FormatButton_Click"
+                    HorizontalContentAlignment="Left" Padding="8,4" Margin="0,0,0,2"
+                    Background="White" Foreground="Black" BorderBrush="Gray"/>
+            <Button x:Name="BatchButton" Tag="Batch" Content="Batch file (.bat)" Click="FormatButton_Click"
+                    HorizontalContentAlignment="Left" Padding="8,4" Margin="0,0,0,2"
+                    Background="White" Foreground="Black" BorderBrush="Gray"/>
+            <Button x:Name="ShellButton" Tag="Shell" Content="Shell script (.sh)" Click="FormatButton_Click"
+                    HorizontalContentAlignment="Left" Padding="8,4" Margin="0,0,0,2"
+                    Background="White" Foreground="Black" BorderBrush="Gray"/>
+        </StackPanel>
         <TextBlock Grid.Row="3" x:Name="FormatHintText" Foreground="#555555" FontStyle="Italic" FontSize="11" Margin="0,2,0,10"/>
 
         <TextBlock Grid.Row="4" Text="Downloads will be saved to" FontWeight="SemiBold" Foreground="Black" Margin="0,0,0,2"/>
@@ -50,8 +82,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBox Grid.Column="0" x:Name="DestinationBox" Margin="0,0,4,0" VerticalContentAlignment="Center"
-                      Background="White" Foreground="Black" BorderBrush="Gray" BorderThickness="1"/>
+            <TextBox Grid.Column="0" x:Name="DestinationBox" Margin="0,0,4,0" VerticalContentAlignment="Center"/>
             <Button Grid.Column="1" Content="Browse..." Padding="8,2" Click="Browse_Click"/>
         </Grid>
         <TextBlock Grid.Row="6" TextWrapping="Wrap" Foreground="#555555" FontStyle="Italic" FontSize="11" Margin="0,0,0,8">
