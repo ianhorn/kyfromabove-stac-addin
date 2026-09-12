@@ -994,10 +994,10 @@ namespace KyFromAboveSTAC
                     var destExe = Path.Combine(destFolder, $"KyFromAbove_download_{stamp}.exe");
                     File.Copy(sourceExe, destExe, overwrite: true);
 
-                    // The exe defaults to reading "<its own name>.json" next to itself, so several
-                    // exported kits can share one destination folder without colliding.
-                    var manifestPath = Path.ChangeExtension(destExe, ".json");
-                    await File.WriteAllTextAsync(manifestPath, BuildDownloaderManifest(assets, destFolder, concurrency));
+                    // Append the manifest straight onto the copied exe (see AppendEmbeddedManifest)
+                    // instead of writing a sidecar .json -- Export Script's "Executable" option
+                    // then produces exactly one file, matching what a plain "download exe" implies.
+                    AppendEmbeddedManifest(destExe, BuildDownloaderManifest(assets, destFolder, concurrency));
 
                     StatusMessage = $"Exported {assets.Count}-asset download kit to {destExe} (double-click to run).";
                 }
@@ -1045,6 +1045,21 @@ namespace KyFromAboveSTAC
                 assets = assets.Select(a => new { url = a.Url, relPath = a.RelPath })
             };
             return System.Text.Json.JsonSerializer.Serialize(manifest, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+
+        // Must match KyFromAboveDownloader's read side (tools\KyFromAboveDownloader\Program.cs,
+        // TryReadEmbeddedManifest) exactly: 8-byte ASCII magic at EOF, preceded by the 8-byte
+        // little-endian byte-length of the JSON payload, which sits right before that.
+        private static readonly byte[] ManifestFooterMagic = System.Text.Encoding.ASCII.GetBytes("KYFAMAN1");
+
+        /// <summary>Append a manifest payload to a copy of KyFromAboveDownloader.exe so it's a single, self-contained file (see ManifestFooterMagic).</summary>
+        private static void AppendEmbeddedManifest(string exePath, string manifestJson)
+        {
+            var jsonBytes = System.Text.Encoding.UTF8.GetBytes(manifestJson);
+            using var fs = new FileStream(exePath, FileMode.Append, FileAccess.Write);
+            fs.Write(jsonBytes, 0, jsonBytes.Length);
+            fs.Write(BitConverter.GetBytes((long)jsonBytes.Length), 0, 8);
+            fs.Write(ManifestFooterMagic, 0, ManifestFooterMagic.Length);
         }
 
         private static string EscapePs(string s) => (s ?? "").Replace("'", "''");
