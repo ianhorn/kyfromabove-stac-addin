@@ -384,3 +384,8 @@ docs/
 site/
 .venv/
 venv/
+
+# tools/release.ps1 build staging (and the .esriAddinX packages themselves) -- these are
+# published as GitHub Release assets, not committed. See docs-src/installation.md.
+/release-staging/
+docs-src/AddInX/

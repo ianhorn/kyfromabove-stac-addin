@@ -30,10 +30,11 @@ No Visual Studio or source build required -- download the `.esriAddinX` that mat
 Pro version, then double-click it (or copy it to `%LocalAppData%\ESRI\ArcGISPro\AssemblyCache`) to
 install it through ArcGIS Pro's normal Add-In Manager flow:
 
-- [Download for ArcGIS Pro 3.6.x](AddInX/KyFromAboveSTACAddin-3.6.x.esriAddinX)
-- [Download for ArcGIS Pro 3.7 or later](AddInX/KyFromAboveSTACAddin-3.7.x.esriAddinX)
+- [Download for ArcGIS Pro 3.6.x](https://github.com/ianhorn/kyfromabove-stac-addin/releases/latest/download/KyFromAboveSTACAddin-3.6.x.esriAddinX)
+- [Download for ArcGIS Pro 3.7 or later](https://github.com/ianhorn/kyfromabove-stac-addin/releases/latest/download/KyFromAboveSTACAddin-3.7.x.esriAddinX)
 
-These are rebuilt from the tip of each branch whenever a new release is cut; see
+These links always point at the latest [GitHub Release](https://github.com/ianhorn/kyfromabove-stac-addin/releases),
+rebuilt from the tip of each branch whenever a new release is cut (see `tools/release.ps1`); see
 [Build from source](#build-from-source) below if you'd rather build it yourself.
 
 ## Requirements
