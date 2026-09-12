@@ -81,6 +81,7 @@ namespace KyFromAboveSTAC
             UseExtentAoiCommand = new RelayCommand(async () => await OnUseExtentAoiAsync(), () => !IsSearchBusy);
             BrowseAoiFileCommand = new RelayCommand(async () => await OnBrowseAoiFileAsync(), () => !IsSearchBusy);
             DownloadAllCommand = new RelayCommand(async () => await OnDownloadAllAsync(), () => !IsSearchBusy && Results.Count > 0);
+            ExportScriptCommand = new RelayCommand(async () => await OnExportScriptAsync(), () => !IsSearchBusy && Results.Count > 0);
             ShowFootprintsCommand = new RelayCommand(async () => await OnShowFootprintsAsync(), () => !IsSearchBusy && Results.Count > 0);
             ToggleSelectAllCommand = new RelayCommand(() => OnToggleSelectAll(), () => !IsSearchBusy && Results.Count > 0);
 
@@ -97,8 +98,8 @@ namespace KyFromAboveSTAC
             ArcGIS.Desktop.Mapping.Events.ActiveMapViewChangedEvent.Subscribe(OnActiveMapViewChanged);
 
             SelectedThreadOption = ThreadOptions.FirstOrDefault(t => t.Label.StartsWith("75%")) ?? ThreadOptions[0];
-            // Default limit is 10, which isn't one of the presets, so start on "Custom" with
-            // the custom box pre-filled at 10 (Limit's field initializer). The dropdown itself
+            // Default limit is 25, which isn't one of the presets, so start on "Custom" with
+            // the custom box pre-filled at 25 (Limit's field initializer). The dropdown itself
             // still only offers 50/100/200/500/Custom, unchanged.
             SelectedLimitOption = LimitOptions.FirstOrDefault(o => o.Label == "Custom") ?? LimitOptions.Last();
         }
@@ -135,6 +136,7 @@ namespace KyFromAboveSTAC
         private void UpdateHasSelection()
         {
             HasSelection = Results.Any(r => r.IsSelected);
+            UpdateBuildOverviewsDefault();
         }
 
         private void OnShowHelp()
@@ -212,8 +214,8 @@ namespace KyFromAboveSTAC
             set => SetProperty(ref _freeText, value, () => FreeText);
         }
 
-        private int _limit = 10;
-        /// <summary>Search result limit. Defaults to 10 (via "Custom"); floored at 1.</summary>
+        private int _limit = 25;
+        /// <summary>Search result limit. Defaults to 25 (via "Custom"); floored at 1.</summary>
         public int Limit
         {
             get => _limit;
@@ -326,12 +328,39 @@ namespace KyFromAboveSTAC
             private set => SetProperty(ref _hasPointCloudResults, value, () => HasPointCloudResults);
         }
 
-                private bool _buildOverviews = true;
-        /// <summary>If checked (default), the mosaic's overviews are defined + built after the rasters are added.</summary>
+        /// <summary>
+        /// Shared "large batch" tile-count threshold: above this many tiles, BuildOverviews
+        /// defaults to unchecked (building overviews over that many COGs can take a long time),
+        /// and a confirmation warning is shown before downloading (large downloads can take a
+        /// long time too). Both remain user-overridable -- this only changes the default/prompt.
+        /// </summary>
+        public const int LargeTileCountThreshold = 100;
+
+        private bool _buildOverviews = true;
+        private bool _buildOverviewsUserSet;
+        /// <summary>
+        /// If checked, the mosaic's overviews are defined + built after the rasters are added.
+        /// Defaults to checked, but auto-resets to unchecked once the mosaic's tile count exceeds
+        /// <see cref="LargeTileCountThreshold"/> -- unless the user has explicitly set it, in
+        /// which case their choice sticks.
+        /// </summary>
         public bool BuildOverviews
         {
             get => _buildOverviews;
-            set => SetProperty(ref _buildOverviews, value, () => BuildOverviews);
+            set { _buildOverviewsUserSet = true; SetProperty(ref _buildOverviews, value, () => BuildOverviews); }
+        }
+
+        /// <summary>Re-derive BuildOverviews' default from the current mosaic-eligible tile count, unless the user has overridden it.</summary>
+        private void UpdateBuildOverviewsDefault()
+        {
+            if (_buildOverviewsUserSet) return;
+            var rasterResults = Results.Where(r => r.DataAsset != null && IsRasterAsset(r.DataAsset)).ToList();
+            var selected = rasterResults.Where(r => r.IsSelected).ToList();
+            var count = (selected.Count > 0 ? selected : rasterResults).Count;
+            var value = count <= LargeTileCountThreshold;
+            if (_buildOverviews == value) return;
+            _buildOverviews = value; // bypass the setter so this doesn't count as a user override
+            NotifyPropertyChanged(() => BuildOverviews);
         }
 
         public ICommand ShowHelpCommand { get; }
@@ -411,6 +440,7 @@ namespace KyFromAboveSTAC
         public ICommand MosaicAllCommand { get; }
         public ICommand ClearAoiCommand { get; }
         public ICommand DownloadAllCommand { get; }
+        public ICommand ExportScriptCommand { get; }
         public ICommand ShowFootprintsCommand { get; }
         public ICommand ToggleSelectAllCommand { get; }
         public ICommand BringYourOwnApiCommand { get; }
@@ -782,6 +812,16 @@ namespace KyFromAboveSTAC
                 toDownload = Results.Where(r => r.DataAsset != null && IsDownloadableAsset(r.DataAsset)).ToList();
             if (toDownload.Count == 0) { StatusMessage = "No downloadable results to download."; return; }
 
+            if (toDownload.Count > LargeTileCountThreshold)
+            {
+                var warn = System.Windows.MessageBox.Show(
+                    $"You're about to download {toDownload.Count} tiles to:\n  {DownloadFolder}\n\n" +
+                    "Downloading a larger number of tiles can take a significant amount of time. Continue?",
+                    "KyFromAbove-STAC: Large download",
+                    System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
+                if (warn != System.Windows.MessageBoxResult.Yes) { StatusMessage = "Download cancelled."; return; }
+            }
+
             var concurrency = Math.Max(1, DownloadConcurrency);
             var dl = new Services.DownloadService(Module1.Current.StacClient);
             var cts = new CancellationTokenSource();
@@ -800,34 +840,8 @@ namespace KyFromAboveSTAC
                 foreach (var r in toDownload)
                 {
                     var item = r;
-                    var destDir = DownloadPerItemFolder ? Path.Combine(DownloadFolder, item.Item.Id) : DownloadFolder;
-                    var fname = Services.DownloadService.SuggestFileName(item.DataAsset, item.Item);
-                    // If flat download, avoid filename collisions by prefixing with item id, but
-                    // don't duplicate any part of the id that's already reflected in the suggested
-                    // file name. E.g. id "1786123019933_N074E297_LAS_Phase2.copc" and asset file
-                    // "N074E297_LAS_Phase2.copc.laz" share the tile-name portion -- prefixing with
-                    // just the non-overlapping "1786123019933" avoids
-                    // "1786123019933_N074E297_LAS_Phase2.copc_N074E297_LAS_Phase2.copc.laz".
-                    if (!DownloadPerItemFolder && !string.IsNullOrWhiteSpace(item.Item.Id))
-                    {
-                        var id = item.Item.Id;
-                        var stem = Path.GetFileNameWithoutExtension(fname);
-
-                        var uniquePart = id;
-                        if (!string.IsNullOrEmpty(stem))
-                        {
-                            var overlapIndex = id.IndexOf(stem, StringComparison.OrdinalIgnoreCase);
-                            if (overlapIndex >= 0)
-                                uniquePart = id.Substring(0, overlapIndex).TrimEnd('_', '-', '.');
-                        }
-
-                        if (!string.IsNullOrEmpty(uniquePart) &&
-                            !fname.StartsWith(uniquePart + "_", StringComparison.OrdinalIgnoreCase) &&
-                            !string.Equals(fname, uniquePart, StringComparison.OrdinalIgnoreCase))
-                        {
-                            fname = uniquePart + "_" + fname;
-                        }
-                    }
+                    var (subFolder, fname) = ResolveDownloadDestination(item);
+                    var destDir = subFolder != null ? Path.Combine(DownloadFolder, subFolder) : DownloadFolder;
                     var dest = Path.Combine(destDir, fname);
                     var prog = new Progress<Services.DownloadProgress>(p =>
                     {
@@ -870,6 +884,214 @@ namespace KyFromAboveSTAC
                 dlg.Append("Download complete.");
                 dlg.CloseWhenReady();
             }
+        }
+
+        /// <summary>
+        /// Resolve where a downloaded asset belongs relative to the download folder: the
+        /// per-item subfolder (or null when downloading flat) and the file name (deduped against
+        /// filename collisions when flat -- see inline comment). Shared by the direct download
+        /// and the exported stand-alone script so both name files identically.
+        /// </summary>
+        private (string SubFolder, string FileName) ResolveDownloadDestination(ResultItemViewModel item)
+        {
+            var fname = Services.DownloadService.SuggestFileName(item.DataAsset, item.Item);
+            if (DownloadPerItemFolder) return (item.Item.Id, fname);
+
+            // If flat download, avoid filename collisions by prefixing with item id, but
+            // don't duplicate any part of the id that's already reflected in the suggested
+            // file name. E.g. id "1786123019933_N074E297_LAS_Phase2.copc" and asset file
+            // "N074E297_LAS_Phase2.copc.laz" share the tile-name portion -- prefixing with
+            // just the non-overlapping "1786123019933" avoids
+            // "1786123019933_N074E297_LAS_Phase2.copc_N074E297_LAS_Phase2.copc.laz".
+            if (!string.IsNullOrWhiteSpace(item.Item.Id))
+            {
+                var id = item.Item.Id;
+                var stem = Path.GetFileNameWithoutExtension(fname);
+
+                var uniquePart = id;
+                if (!string.IsNullOrEmpty(stem))
+                {
+                    var overlapIndex = id.IndexOf(stem, StringComparison.OrdinalIgnoreCase);
+                    if (overlapIndex >= 0)
+                        uniquePart = id.Substring(0, overlapIndex).TrimEnd('_', '-', '.');
+                }
+
+                if (!string.IsNullOrEmpty(uniquePart) &&
+                    !fname.StartsWith(uniquePart + "_", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(fname, uniquePart, StringComparison.OrdinalIgnoreCase))
+                {
+                    fname = uniquePart + "_" + fname;
+                }
+            }
+            return (null, fname);
+        }
+
+        /// <summary>
+        /// Export a stand-alone PowerShell (.ps1) or Python (.py) script that downloads the
+        /// selected (or all) downloadable results without ArcGIS Pro running -- e.g. for very
+        /// large batches, running on another machine, or scheduling for later. Uses the same
+        /// item selection and destination-naming logic as OnDownloadAllAsync.
+        /// </summary>
+        private async Task OnExportScriptAsync()
+        {
+            var toDownload = Results
+                .Where(r => r.IsSelected && r.DataAsset != null && IsDownloadableAsset(r.DataAsset))
+                .ToList();
+            if (toDownload.Count == 0)
+                toDownload = Results.Where(r => r.DataAsset != null && IsDownloadableAsset(r.DataAsset)).ToList();
+            if (toDownload.Count == 0) { StatusMessage = "No downloadable results to export."; return; }
+
+            var sfd = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Export stand-alone download script",
+                Filter = "PowerShell script (*.ps1)|*.ps1|Python script (*.py)|*.py",
+                FileName = "KyFromAbove_download_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".ps1",
+                InitialDirectory = string.IsNullOrWhiteSpace(DownloadFolder) ? null : DownloadFolder
+            };
+            if (sfd.ShowDialog() != true) { StatusMessage = "Script export cancelled."; return; }
+
+            var assets = toDownload.Select(item =>
+            {
+                var (subFolder, fname) = ResolveDownloadDestination(item);
+                var relPath = subFolder != null ? subFolder + "/" + fname : fname;
+                return (Url: item.DataAsset.Href, RelPath: relPath);
+            }).ToList();
+
+            var concurrency = Math.Max(1, DownloadConcurrency);
+            bool isPython = string.Equals(Path.GetExtension(sfd.FileName), ".py", StringComparison.OrdinalIgnoreCase);
+            var script = isPython
+                ? BuildPythonDownloadScript(assets, DownloadFolder, concurrency)
+                : BuildPowerShellDownloadScript(assets, DownloadFolder, concurrency);
+
+            try
+            {
+                await File.WriteAllTextAsync(sfd.FileName, script);
+                StatusMessage = $"Exported {assets.Count}-asset download script to {sfd.FileName}.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "Could not write script: " + ex.Message;
+            }
+        }
+
+        private static string EscapePs(string s) => (s ?? "").Replace("'", "''");
+        private static string EscapePy(string s) => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+        /// <summary>
+        /// Build a Windows PowerShell 5.1-compatible download script (no external modules, so it
+        /// runs on any Windows machine as-is). Concurrency is via a throttled batch of background
+        /// jobs rather than "ForEach-Object -Parallel", which needs PowerShell 7+.
+        /// </summary>
+        private static string BuildPowerShellDownloadScript(List<(string Url, string RelPath)> assets, string destFolder, int concurrency)
+        {
+            var lines = new List<string>
+            {
+                "<#",
+                "    KyFromAbove-STAC stand-alone download script",
+                $"    Generated {DateTime.Now:yyyy-MM-dd HH:mm} -- {assets.Count} asset(s).",
+                "",
+                "    Edit $DestFolder / $Concurrency below if needed, then run:",
+                "        powershell -ExecutionPolicy Bypass -File \"<this file>\"",
+                "#>",
+                "",
+                $"$DestFolder  = '{EscapePs(destFolder)}'",
+                $"$Concurrency = {concurrency}",
+                "",
+                "$Assets = @("
+            };
+            foreach (var a in assets)
+                lines.Add($"    @{{ Url = '{EscapePs(a.Url)}'; RelPath = '{EscapePs(a.RelPath)}' }}");
+            lines.Add(")");
+            lines.Add("");
+            lines.Add("New-Item -ItemType Directory -Force -Path $DestFolder | Out-Null");
+            lines.Add("");
+            lines.Add("$jobs = @()");
+            lines.Add("$ok = 0; $fail = 0");
+            lines.Add("foreach ($asset in $Assets) {");
+            lines.Add("    while (@($jobs | Where-Object { $_.State -eq 'Running' }).Count -ge $Concurrency) {");
+            lines.Add("        Start-Sleep -Milliseconds 250");
+            lines.Add("    }");
+            lines.Add("    $destPath = Join-Path $DestFolder $asset.RelPath");
+            lines.Add("    $destDir  = Split-Path $destPath -Parent");
+            lines.Add("    if ($destDir -and -not (Test-Path $destDir)) { New-Item -ItemType Directory -Force -Path $destDir | Out-Null }");
+            lines.Add("");
+            lines.Add("    $jobs += Start-Job -ScriptBlock {");
+            lines.Add("        param($url, $dest)");
+            lines.Add("        try {");
+            lines.Add("            Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing");
+            lines.Add("            \"OK $dest\"");
+            lines.Add("        } catch {");
+            lines.Add("            \"FAIL $dest : $($_.Exception.Message)\"");
+            lines.Add("        }");
+            lines.Add("    } -ArgumentList $asset.Url, $destPath");
+            lines.Add("}");
+            lines.Add("");
+            lines.Add("$jobs | Wait-Job | Out-Null");
+            lines.Add("foreach ($j in $jobs) {");
+            lines.Add("    $result = Receive-Job $j");
+            lines.Add("    Write-Host $result");
+            lines.Add("    if ($result -like 'OK *') { $ok++ } else { $fail++ }");
+            lines.Add("    Remove-Job $j");
+            lines.Add("}");
+            lines.Add("");
+            lines.Add("Write-Host \"\"");
+            lines.Add("Write-Host \"Done: $ok succeeded, $fail failed -> $DestFolder\"");
+            return string.Join("\r\n", lines);
+        }
+
+        /// <summary>Build a stand-alone Python 3 download script using only the standard library (no "requests" dependency).</summary>
+        private static string BuildPythonDownloadScript(List<(string Url, string RelPath)> assets, string destFolder, int concurrency)
+        {
+            var lines = new List<string>
+            {
+                "#!/usr/bin/env python3",
+                "\"\"\"",
+                "KyFromAbove-STAC stand-alone download script.",
+                $"Generated {DateTime.Now:yyyy-MM-dd HH:mm} -- {assets.Count} asset(s).",
+                "",
+                "Edit DEST_FOLDER / CONCURRENCY below if needed, then run:",
+                "    python \"<this file>\"",
+                "\"\"\"",
+                "import concurrent.futures",
+                "import pathlib",
+                "import urllib.request",
+                "",
+                $"DEST_FOLDER = pathlib.Path(\"{EscapePy(destFolder)}\")",
+                $"CONCURRENCY = {concurrency}",
+                "",
+                "ASSETS = ["
+            };
+            foreach (var a in assets)
+                lines.Add($"    (\"{EscapePy(a.Url)}\", \"{EscapePy(a.RelPath)}\"),");
+            lines.Add("]");
+            lines.Add("");
+            lines.Add("");
+            lines.Add("def fetch(url, rel_path):");
+            lines.Add("    dest = DEST_FOLDER / rel_path");
+            lines.Add("    dest.parent.mkdir(parents=True, exist_ok=True)");
+            lines.Add("    try:");
+            lines.Add("        urllib.request.urlretrieve(url, dest)");
+            lines.Add("        return f\"OK   {rel_path}\"");
+            lines.Add("    except Exception as ex:");
+            lines.Add("        return f\"FAIL {rel_path}: {ex}\"");
+            lines.Add("");
+            lines.Add("");
+            lines.Add("def main():");
+            lines.Add("    DEST_FOLDER.mkdir(parents=True, exist_ok=True)");
+            lines.Add("    ok = fail = 0");
+            lines.Add("    with concurrent.futures.ThreadPoolExecutor(max_workers=CONCURRENCY) as ex:");
+            lines.Add("        for result in ex.map(lambda a: fetch(*a), ASSETS):");
+            lines.Add("            print(result)");
+            lines.Add("            if result.startswith(\"OK\"):");
+            lines.Add("                ok += 1");
+            lines.Add("            else:");
+            lines.Add("                fail += 1");
+            lines.Add("    print(f\"\\nDone: {ok} succeeded, {fail} failed -> {DEST_FOLDER}\")");
+            lines.Add("");
+            lines.Add("");
+            lines.Add("if __name__ == \"__main__\":");
+            lines.Add("    main()");
+            return string.Join("\n", lines);
         }
 
         /// <summary>Add STAC search result footprints as a GeoJSON layer to the active map.</summary>
