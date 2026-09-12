@@ -76,7 +76,8 @@ namespace KyFromAboveSTAC
             DrawPolygonAoiCommand = new RelayCommand(async () => await OnDrawAoiAsync(DrawPolygonAoiTool.ToolId), () => !IsSearchBusy);
             RefreshLayersCommand = new RelayCommand(async () => await OnRefreshLayersAsync(), () => !IsSearchBusy);
             UseLayerAoiCommand = new RelayCommand(async () => await OnUseLayerAoiAsync(), () => !IsSearchBusy && SelectedLayer != null);
-                        MosaicAllCommand = new RelayCommand(async () => await OnMosaicAllAsync(), () => !IsSearchBusy && Results.Count > 0);
+                        MosaicAllCommand = new RelayCommand(async () => await OnMosaicAllAsync(),
+                            () => !IsSearchBusy && Results.Count > 0 && MosaicEligibleTileCount() <= LargeTileCountThreshold);
                         ClearAoiCommand = new RelayCommand(OnClearAoi, () => !IsSearchBusy);
             UseExtentAoiCommand = new RelayCommand(async () => await OnUseExtentAoiAsync(), () => !IsSearchBusy);
             BrowseAoiFileCommand = new RelayCommand(async () => await OnBrowseAoiFileAsync(), () => !IsSearchBusy);
@@ -350,14 +351,23 @@ namespace KyFromAboveSTAC
             set { _buildOverviewsUserSet = true; SetProperty(ref _buildOverviews, value, () => BuildOverviews); }
         }
 
+        /// <summary>
+        /// The number of tiles a "Mosaic All to Map" run would actually use right now: the
+        /// selected raster (COG) results, or all raster results if none are selected. Shared by
+        /// the BuildOverviews default and the MosaicAllCommand's CanExecute check below.
+        /// </summary>
+        private int MosaicEligibleTileCount()
+        {
+            var rasterResults = Results.Where(r => r.DataAsset != null && IsRasterAsset(r.DataAsset)).ToList();
+            var selected = rasterResults.Where(r => r.IsSelected).ToList();
+            return (selected.Count > 0 ? selected : rasterResults).Count;
+        }
+
         /// <summary>Re-derive BuildOverviews' default from the current mosaic-eligible tile count, unless the user has overridden it.</summary>
         private void UpdateBuildOverviewsDefault()
         {
             if (_buildOverviewsUserSet) return;
-            var rasterResults = Results.Where(r => r.DataAsset != null && IsRasterAsset(r.DataAsset)).ToList();
-            var selected = rasterResults.Where(r => r.IsSelected).ToList();
-            var count = (selected.Count > 0 ? selected : rasterResults).Count;
-            var value = count <= LargeTileCountThreshold;
+            var value = MosaicEligibleTileCount() <= LargeTileCountThreshold;
             if (_buildOverviews == value) return;
             _buildOverviews = value; // bypass the setter so this doesn't count as a user override
             NotifyPropertyChanged(() => BuildOverviews);
@@ -678,6 +688,13 @@ namespace KyFromAboveSTAC
             var selected = rasterResults.Where(r => r.IsSelected).ToList();
             var hrefs = (selected.Count > 0 ? selected : rasterResults).Select(r => r.DataAsset.Href).ToList();
             if (hrefs.Count == 0) { StatusMessage = "No raster (COG) results to mosaic."; return; }
+            // Button is disabled above the threshold via MosaicAllCommand's CanExecute; this is
+            // just defense-in-depth against calling this method directly.
+            if (hrefs.Count > LargeTileCountThreshold)
+            {
+                StatusMessage = $"Too many tiles to mosaic ({hrefs.Count} > {LargeTileCountThreshold}). Narrow your search or select fewer tiles first.";
+                return;
+            }
 
             var buildOverviews = BuildOverviews;
             StatusMessage = "Building mosaic dataset layer...";
@@ -927,8 +944,8 @@ namespace KyFromAboveSTAC
         }
 
         /// <summary>
-        /// Export a stand-alone PowerShell (.ps1) or Python (.py) script that downloads the
-        /// selected (or all) downloadable results without ArcGIS Pro running -- e.g. for very
+        /// Export a stand-alone download kit (an .exe, or a .py/.ps1/.bat/.sh script) for the
+        /// selected (or all) downloadable results, to a folder the user picks -- e.g. for very
         /// large batches, running on another machine, or scheduling for later. Uses the same
         /// item selection and destination-naming logic as OnDownloadAllAsync.
         /// </summary>
@@ -941,14 +958,13 @@ namespace KyFromAboveSTAC
                 toDownload = Results.Where(r => r.DataAsset != null && IsDownloadableAsset(r.DataAsset)).ToList();
             if (toDownload.Count == 0) { StatusMessage = "No downloadable results to export."; return; }
 
-            var sfd = new Microsoft.Win32.SaveFileDialog
-            {
-                Title = "Export stand-alone download script",
-                Filter = "PowerShell script (*.ps1)|*.ps1|Python script (*.py)|*.py",
-                FileName = "KyFromAbove_download_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".ps1",
-                InitialDirectory = string.IsNullOrWhiteSpace(DownloadFolder) ? null : DownloadFolder
-            };
-            if (sfd.ShowDialog() != true) { StatusMessage = "Script export cancelled."; return; }
+            var dlg = new ExportScriptDialog(DownloadFolder) { Owner = System.Windows.Application.Current?.MainWindow };
+            if (dlg.ShowDialog() != true) { StatusMessage = "Script export cancelled."; return; }
+
+            var destFolder = dlg.DestinationFolder;
+            try { Directory.CreateDirectory(destFolder); }
+            catch (Exception ex) { StatusMessage = "Bad destination folder: " + ex.Message; return; }
+            DownloadFolder = destFolder;
 
             var assets = toDownload.Select(item =>
             {
@@ -958,24 +974,82 @@ namespace KyFromAboveSTAC
             }).ToList();
 
             var concurrency = Math.Max(1, DownloadConcurrency);
-            bool isPython = string.Equals(Path.GetExtension(sfd.FileName), ".py", StringComparison.OrdinalIgnoreCase);
-            var script = isPython
-                ? BuildPythonDownloadScript(assets, DownloadFolder, concurrency)
-                : BuildPowerShellDownloadScript(assets, DownloadFolder, concurrency);
+            var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 
             try
             {
-                await File.WriteAllTextAsync(sfd.FileName, script);
-                StatusMessage = $"Exported {assets.Count}-asset download script to {sfd.FileName}.";
+                if (dlg.SelectedFormat == ExportScriptFormat.Executable)
+                {
+                    // The exe is a separate console project (tools\KyFromAboveDownloader\), pre-built
+                    // and bundled into this add-in's own package -- see the Content item in
+                    // KyFromAboveSTACAddin.csproj -- so it lands right next to this assembly on disk.
+                    var sourceExe = Path.Combine(
+                        Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? "",
+                        "KyFromAboveDownloader.exe");
+                    if (!File.Exists(sourceExe))
+                    {
+                        StatusMessage = "Could not find the bundled KyFromAboveDownloader.exe alongside this add-in.";
+                        return;
+                    }
+                    var destExe = Path.Combine(destFolder, $"KyFromAbove_download_{stamp}.exe");
+                    File.Copy(sourceExe, destExe, overwrite: true);
+
+                    // The exe defaults to reading "<its own name>.json" next to itself, so several
+                    // exported kits can share one destination folder without colliding.
+                    var manifestPath = Path.ChangeExtension(destExe, ".json");
+                    await File.WriteAllTextAsync(manifestPath, BuildDownloaderManifest(assets, destFolder, concurrency));
+
+                    StatusMessage = $"Exported {assets.Count}-asset download kit to {destExe} (double-click to run).";
+                }
+                else
+                {
+                    string ext;
+                    string script;
+                    switch (dlg.SelectedFormat)
+                    {
+                        case ExportScriptFormat.Python:
+                            ext = ".py";
+                            script = BuildPythonDownloadScript(assets, destFolder, concurrency);
+                            break;
+                        case ExportScriptFormat.PowerShell:
+                            ext = ".ps1";
+                            script = BuildPowerShellDownloadScript(assets, destFolder, concurrency);
+                            break;
+                        case ExportScriptFormat.Batch:
+                            ext = ".bat";
+                            script = BuildBatchDownloadScript(assets, destFolder);
+                            break;
+                        default:
+                            ext = ".sh";
+                            script = BuildShellDownloadScript(assets, destFolder, concurrency);
+                            break;
+                    }
+                    var scriptPath = Path.Combine(destFolder, $"KyFromAbove_download_{stamp}{ext}");
+                    await File.WriteAllTextAsync(scriptPath, script);
+                    StatusMessage = $"Exported {assets.Count}-asset download script to {scriptPath}.";
+                }
             }
             catch (Exception ex)
             {
-                StatusMessage = "Could not write script: " + ex.Message;
+                StatusMessage = "Could not export script: " + ex.Message;
             }
+        }
+
+        /// <summary>Manifest.json consumed by the bundled KyFromAboveDownloader.exe (tools\KyFromAboveDownloader\Program.cs).</summary>
+        private static string BuildDownloaderManifest(List<(string Url, string RelPath)> assets, string destFolder, int concurrency)
+        {
+            var manifest = new
+            {
+                destFolder,
+                concurrency,
+                assets = assets.Select(a => new { url = a.Url, relPath = a.RelPath })
+            };
+            return System.Text.Json.JsonSerializer.Serialize(manifest, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
         }
 
         private static string EscapePs(string s) => (s ?? "").Replace("'", "''");
         private static string EscapePy(string s) => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+        private static string EscapeSh(string s) => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("$", "\\$").Replace("`", "\\`");
 
         /// <summary>
         /// Build a Windows PowerShell 5.1-compatible download script (no external modules, so it
@@ -1091,6 +1165,92 @@ namespace KyFromAboveSTAC
             lines.Add("");
             lines.Add("if __name__ == \"__main__\":");
             lines.Add("    main()");
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>
+        /// Build a Windows .bat download script using curl.exe (bundled with Windows 10 1803+
+        /// and Windows 11). Downloads run sequentially -- .bat has no good native concurrency
+        /// primitive, and looping curl calls one at a time is simple and reliable.
+        /// </summary>
+        private static string BuildBatchDownloadScript(List<(string Url, string RelPath)> assets, string destFolder)
+        {
+            var lines = new List<string>
+            {
+                "@echo off",
+                "rem KyFromAbove-STAC stand-alone download script",
+                $"rem Generated {DateTime.Now:yyyy-MM-dd HH:mm} -- {assets.Count} asset(s).",
+                "rem Edit DESTFOLDER below if needed, then double-click this file to run.",
+                "",
+                $"set DESTFOLDER={destFolder}",
+                "if not exist \"%DESTFOLDER%\" mkdir \"%DESTFOLDER%\"",
+                ""
+            };
+            int i = 0;
+            foreach (var a in assets)
+            {
+                i++;
+                var relPathWin = a.RelPath.Replace('/', '\\');
+                var dirPart = Path.GetDirectoryName(relPathWin);
+                lines.Add($"echo [{i}/{assets.Count}] {relPathWin}");
+                if (!string.IsNullOrEmpty(dirPart))
+                    lines.Add($"if not exist \"%DESTFOLDER%\\{dirPart}\" mkdir \"%DESTFOLDER%\\{dirPart}\" 2>nul");
+                lines.Add($"curl.exe -L -o \"%DESTFOLDER%\\{relPathWin}\" \"{a.Url}\"");
+                lines.Add("");
+            }
+            lines.Add("echo Done -> %DESTFOLDER%");
+            lines.Add("pause");
+            return string.Join("\r\n", lines);
+        }
+
+        /// <summary>
+        /// Build a POSIX shell script (macOS/Linux/WSL) using curl, run in batches of
+        /// $CONCURRENCY at a time (a plain "wait" after each batch rather than "wait -n", so it
+        /// works on the old bash 3.2 macOS still ships by default, not just bash 4.3+).
+        /// </summary>
+        private static string BuildShellDownloadScript(List<(string Url, string RelPath)> assets, string destFolder, int concurrency)
+        {
+            var lines = new List<string>
+            {
+                "#!/usr/bin/env bash",
+                "# KyFromAbove-STAC stand-alone download script",
+                $"# Generated {DateTime.Now:yyyy-MM-dd HH:mm} -- {assets.Count} asset(s).",
+                "# Edit DEST_FOLDER / CONCURRENCY below if needed, then run: bash \"<this file>\"",
+                "set -u",
+                "",
+                $"DEST_FOLDER=\"{EscapeSh(destFolder)}\"",
+                $"CONCURRENCY={concurrency}",
+                "",
+                "mkdir -p \"$DEST_FOLDER\"",
+                "",
+                "URLS=("
+            };
+            foreach (var a in assets) lines.Add($"  \"{EscapeSh(a.Url)}\"");
+            lines.Add(")");
+            lines.Add("RELPATHS=(");
+            foreach (var a in assets) lines.Add($"  \"{EscapeSh(a.RelPath)}\"");
+            lines.Add(")");
+            lines.Add("");
+            lines.Add("fetch() {");
+            lines.Add("  local url=\"$1\" rel=\"$2\"");
+            lines.Add("  local dest=\"$DEST_FOLDER/$rel\"");
+            lines.Add("  mkdir -p \"$(dirname \"$dest\")\"");
+            lines.Add("  if curl -fsSL -o \"$dest\" \"$url\"; then");
+            lines.Add("    echo \"OK   $rel\"");
+            lines.Add("  else");
+            lines.Add("    echo \"FAIL $rel\"");
+            lines.Add("  fi");
+            lines.Add("}");
+            lines.Add("");
+            lines.Add("i=0");
+            lines.Add("for idx in \"${!URLS[@]}\"; do");
+            lines.Add("  fetch \"${URLS[$idx]}\" \"${RELPATHS[$idx]}\" &");
+            lines.Add("  i=$((i + 1))");
+            lines.Add("  if [ $((i % CONCURRENCY)) -eq 0 ]; then wait; fi");
+            lines.Add("done");
+            lines.Add("wait");
+            lines.Add("");
+            lines.Add("echo \"Done -> $DEST_FOLDER\"");
             return string.Join("\n", lines);
         }
 

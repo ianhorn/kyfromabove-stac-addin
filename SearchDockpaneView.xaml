@@ -114,7 +114,8 @@
                           ToolTip="Use selected features"/>
             </WrapPanel>
             <WrapPanel Orientation="Horizontal" Margin="0,2,0,2">
-                <Button Content="Mosaic All to Map" Command="{Binding MosaicAllCommand}" Padding="6,2" Margin="0,0,2,0" FontWeight="SemiBold"/>
+                <Button Content="Mosaic All to Map" Command="{Binding MosaicAllCommand}" Padding="6,2" Margin="0,0,2,0" FontWeight="SemiBold"
+                        ToolTip="Builds a mosaic dataset from the selected (or all) raster results and adds it to the map. Disabled above 100 tiles -- narrow your search or select fewer tiles first."/>
                 <CheckBox Content="Build overviews" IsChecked="{Binding BuildOverviews}" VerticalAlignment="Center" Margin="4,0,2,0"/>
                 <Button Content="Clear AOI" Command="{Binding ClearAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
             </WrapPanel>
@@ -180,7 +181,7 @@
                 </Grid.ColumnDefinitions>
                 <Button Content="Select All" Command="{Binding ToggleSelectAllCommand}" Grid.Column="0" Padding="6,2" Margin="0,0,4,0" ToolTip="Toggle selection of all results for bulk actions."/>
                 <Button Content="Download Selected" Command="{Binding DownloadAllCommand}" Grid.Column="1" HorizontalAlignment="Left" Padding="6,2" Margin="0,0,4,0" ToolTip="Prompts for a folder, then downloads selected assets there. Point-clouds (LAZ/LAS) are downloadable but cannot be added to the map." IsEnabled="{Binding HasSelection}"/>
-                <Button Content="Export Script..." Command="{Binding ExportScriptCommand}" Grid.Column="2" Padding="6,2" Margin="0,0,4,0" ToolTip="Export a stand-alone PowerShell (.ps1) or Python (.py) script that downloads the selected assets without ArcGIS Pro running -- useful for very large batches or running on another machine." IsEnabled="{Binding HasSelection}"/>
+                <Button Content="Export Script..." Command="{Binding ExportScriptCommand}" Grid.Column="2" Padding="6,2" Margin="0,0,4,0" ToolTip="Export a stand-alone download kit (executable, Python, PowerShell, batch, or shell script) for the selected assets that runs without ArcGIS Pro -- useful for very large batches or running on another machine." IsEnabled="{Binding HasSelection}"/>
                 <Button Content="Show Footprints" Command="{Binding ShowFootprintsCommand}" Grid.Column="3" HorizontalAlignment="Right" Padding="6,2" ToolTip="Add result footprints as a layer to the active map."/>
             </Grid>
             <!-- Help text: clarify download vs add-to-map behavior for point-cloud assets -->
