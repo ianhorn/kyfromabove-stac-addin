@@ -67,9 +67,6 @@
             <Button x:Name="PowerShellButton" Tag="PowerShell" Content="PowerShell script (.ps1)" Click="FormatButton_Click"
                     HorizontalContentAlignment="Left" Padding="8,4" Margin="0,0,0,2"
                     Background="White" Foreground="Black" BorderBrush="Gray"/>
-            <Button x:Name="BatchButton" Tag="Batch" Content="Batch file (.bat)" Click="FormatButton_Click"
-                    HorizontalContentAlignment="Left" Padding="8,4" Margin="0,0,0,2"
-                    Background="White" Foreground="Black" BorderBrush="Gray"/>
             <Button x:Name="ShellButton" Tag="Shell" Content="Shell script (.sh)" Click="FormatButton_Click"
                     HorizontalContentAlignment="Left" Padding="8,4" Margin="0,0,0,2"
                     Background="White" Foreground="Black" BorderBrush="Gray"/>

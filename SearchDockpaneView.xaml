@@ -181,7 +181,7 @@
                 </Grid.ColumnDefinitions>
                 <Button Content="Select All" Command="{Binding ToggleSelectAllCommand}" Grid.Column="0" Padding="6,2" Margin="0,0,4,0" ToolTip="Toggle selection of all results for bulk actions."/>
                 <Button Content="Download Selected" Command="{Binding DownloadAllCommand}" Grid.Column="1" HorizontalAlignment="Left" Padding="6,2" Margin="0,0,4,0" ToolTip="Prompts for a folder, then downloads selected assets there. Point-clouds (LAZ/LAS) are downloadable but cannot be added to the map." IsEnabled="{Binding HasSelection}"/>
-                <Button Content="Export Script..." Command="{Binding ExportScriptCommand}" Grid.Column="2" Padding="6,2" Margin="0,0,4,0" ToolTip="Export a stand-alone download kit (executable, Python, PowerShell, batch, or shell script) for the selected assets that runs without ArcGIS Pro -- useful for very large batches or running on another machine." IsEnabled="{Binding HasSelection}"/>
+                <Button Content="Export Script..." Command="{Binding ExportScriptCommand}" Grid.Column="2" Padding="6,2" Margin="0,0,4,0" ToolTip="Export a stand-alone download kit (executable, Python, PowerShell, or shell script) for the selected assets that runs without ArcGIS Pro -- useful for very large batches or running on another machine." IsEnabled="{Binding HasSelection}"/>
                 <Button Content="Show Footprints" Command="{Binding ShowFootprintsCommand}" Grid.Column="3" HorizontalAlignment="Right" Padding="6,2" ToolTip="Add result footprints as a layer to the active map."/>
             </Grid>
             <!-- Help text: clarify download vs add-to-map behavior for point-cloud assets -->
