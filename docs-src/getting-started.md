@@ -5,11 +5,9 @@
 Click the **KyFromAbove-STAC-AddIn** tab, then **STAC Search**. This opens a dockable pane (docked
 alongside the Contents pane by default) that stays open as you work.
 
-<!-- SCREENSHOT: images/getting-started-ribbon.jpg -- ArcGIS Pro ribbon with the
-     KyFromAbove-STAC tab and STAC Search button -->
+![ArcGIS Pro ribbon with the KyFromAbove-STAC tab and STAC Search button](images/getting-started-ribbon.jpg)
 
-<!-- SCREENSHOT: images/getting-started-dockpane.jpg -- the KyFromAbove-STAC dockpane open
-     alongside the map, with collections loaded -->
+![The KyFromAbove-STAC dockpane, docked alongside the Contents pane](images/getting-started-dockpane.jpg)
 
 ## A first search, end to end
 
@@ -28,8 +26,7 @@ alongside the Contents pane by default) that stays open as you work.
 6. **Work with results** -- select items, download them, add rasters to the map, or view
    footprints. See [Search & Results](search-and-results.md) and [Downloads](downloads.md).
 
-<!-- SCREENSHOT: images/getting-started-first-results.jpg -- a completed search showing
-     results with thumbnails and the summary line -->
+![A completed search showing results with thumbnails and the summary line](images/getting-started-first-results.jpg)
 
 !!! tip "Hover for details"
     Hover over any result row to see its full underlying STAC item JSON (id, properties, assets,

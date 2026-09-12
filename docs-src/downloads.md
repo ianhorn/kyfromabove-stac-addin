@@ -13,8 +13,7 @@ downloads still in progress (already-completed files are kept).
 Both raster (COG) and point-cloud (`.laz`/`.las`, etc.) assets can be downloaded this way, even
 though point-clouds can't be added directly to the map.
 
-<!-- SCREENSHOT: images/downloads-progress.jpg -- download status after a batch completes:
-     succeeded/failed counts and total size written -->
+![The download progress dialog, showing per-asset byte counts as downloads run](images/downloads-progress.jpg)
 
 ## Parallel Downloads
 
@@ -36,10 +35,21 @@ The **Item folders** checkbox next to **Parallel Downloads** controls folder lay
   prefixed with the item ID to avoid collisions.
 - **Checked** -- each item gets its own subfolder, named after the item ID.
 
-<!-- SCREENSHOT: images/downloads-parallel-options.jpg -- the Parallel Downloads dropdown
-     open, next to the Item folders checkbox -->
+![The Parallel Downloads dropdown open, showing core-count presets and a Custom option](images/downloads-parallel-options.jpg)
 
 ## Downloading a single item
 
 Each result row also has its own **Download** button, which prompts for a save location (a single
 file, via a standard Save dialog) instead of using the shared destination-folder flow above.
+
+## Export Script
+
+**Export Script...** (next to Download Selected) writes out a stand-alone download kit for the
+selected (or all) results that runs without ArcGIS Pro -- useful for very large batches, running on
+another machine, or scheduling for later.
+
+Choose an **output type** -- a self-contained executable (`.exe`, no dependencies), or a Python
+(`.py`, needs Python 3), PowerShell (`.ps1`), or shell (`.sh`) script -- and where the downloads (and
+the generated file itself) should be saved, then click **Export**.
+
+![The Export Script dialog: output type options and the downloads destination folder](images/export-script-dialog.jpg)
