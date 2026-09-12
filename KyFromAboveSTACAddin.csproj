@@ -14,6 +14,15 @@
     <AssemblyName>KyFromAboveSTACAddin</AssemblyName>
     <RootNamespace>KyFromAboveSTAC</RootNamespace>
     <PackageType>Addin</PackageType>
+    <!--
+      tools\KyFromAboveDownloader\ is its own separate SDK project (a stand-alone console
+      app, not part of this add-in's assembly) that happens to live under this project's
+      directory. Without this, the default implicit item globs below sweep its Program.cs
+      and generated obj\ files into THIS compile too, causing duplicate-attribute errors.
+      The one file from it we do want, the pre-built exe, is added back explicitly as
+      Content further down.
+    -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);tools\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -32,6 +41,22 @@
     <Content Include="Images\AddInDesktop32.png" />
     <Content Include="DarkImages\AddInDesktop16.png" />
     <Content Include="DarkImages\AddInDesktop32.png" />
+    <!--
+      Stand-alone downloader exe offered by Export Script's "Executable" option (see
+      tools\KyFromAboveDownloader\). Pre-built and committed (self-contained single-file
+      win-x64, ~14MB) rather than compiled by this project: rebuild it with
+      "dotnet publish -c Release -o bin\publish" in that folder after changing its source.
+
+      CopyToOutputDirectory is required, not just Link: the Esri SDK's packaging target only
+      puts a Content item in the .esriAddinX's Install\ folder (the part that actually gets
+      extracted to AssemblyCache at install time; Config.daml/Images above do NOT and stay
+      zipped, read by Pro directly) when it finds the file already sitting in the build output
+      directory. Without this, SearchDockpaneViewModel would never find the exe at runtime.
+    -->
+    <Content Include="tools\KyFromAboveDownloader\dist\KyFromAboveDownloader.exe">
+      <Link>KyFromAboveDownloader.exe</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

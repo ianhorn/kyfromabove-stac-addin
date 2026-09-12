@@ -1,0 +1,76 @@
+<Window x:Class="KyFromAboveSTAC.ExportScriptDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Export Script"
+        Width="460" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10">
+            Write out a stand-alone download kit for the selected (or all) results that runs
+            without ArcGIS Pro -- for very large batches, running on another machine, or
+            scheduling for later.
+        </TextBlock>
+
+        <TextBlock Grid.Row="1" Text="Output type" FontWeight="SemiBold" Margin="0,0,0,4"/>
+        <StackPanel Grid.Row="2" Orientation="Vertical" Margin="0,0,0,10">
+            <RadioButton x:Name="ExecutableOption" GroupName="Format" Margin="0,2" IsChecked="True">
+                <TextBlock>
+                    Executable (<Run FontFamily="Consolas">.exe</Run>) <Run Foreground="Gray" FontStyle="Italic">-- no install needed, Windows only</Run>
+                </TextBlock>
+            </RadioButton>
+            <RadioButton x:Name="PythonOption" GroupName="Format" Margin="0,2">
+                <TextBlock>
+                    Python script (<Run FontFamily="Consolas">.py</Run>) <Run Foreground="Gray" FontStyle="Italic">-- needs Python 3</Run>
+                </TextBlock>
+            </RadioButton>
+            <RadioButton x:Name="PowerShellOption" GroupName="Format" Margin="0,2">
+                <TextBlock>
+                    PowerShell script (<Run FontFamily="Consolas">.ps1</Run>) <Run Foreground="Gray" FontStyle="Italic">-- Windows only, no install needed</Run>
+                </TextBlock>
+            </RadioButton>
+            <RadioButton x:Name="BatchOption" GroupName="Format" Margin="0,2">
+                <TextBlock>
+                    Batch file (<Run FontFamily="Consolas">.bat</Run>) <Run Foreground="Gray" FontStyle="Italic">-- Windows only, no install needed</Run>
+                </TextBlock>
+            </RadioButton>
+            <RadioButton x:Name="ShellOption" GroupName="Format" Margin="0,2">
+                <TextBlock>
+                    Shell script (<Run FontFamily="Consolas">.sh</Run>) <Run Foreground="Gray" FontStyle="Italic">-- macOS/Linux/WSL, needs curl</Run>
+                </TextBlock>
+            </RadioButton>
+        </StackPanel>
+
+        <TextBlock Grid.Row="3" Text="Downloads will be saved to" FontWeight="SemiBold" Margin="0,0,0,2"/>
+        <Grid Grid.Row="4" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0" x:Name="DestinationBox" Margin="0,0,4,0" VerticalContentAlignment="Center"/>
+            <Button Grid.Column="1" Content="Browse..." Padding="8,2" Click="Browse_Click"/>
+        </Grid>
+        <TextBlock Grid.Row="5" TextWrapping="Wrap" Foreground="Gray" FontStyle="Italic" FontSize="11" Margin="0,0,0,8">
+            The generated file is written into this same folder, alongside the downloads.
+        </TextBlock>
+
+        <TextBlock Grid.Row="6" x:Name="ErrorText" Foreground="Red" TextWrapping="Wrap" Visibility="Collapsed" Margin="0,0,0,8"/>
+
+        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Cancel" Padding="10,4" Margin="0,0,6,0" Click="Cancel_Click" IsCancel="True"/>
+            <Button Content="Export" Padding="10,4" Click="Export_Click" IsDefault="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
