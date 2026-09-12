@@ -13,6 +13,8 @@
     When **Limit** is above 50, thumbnail loading is automatically disabled for that search to avoid
     a burst of extra network requests -- a note appears under the Search button when this is active.
 
+![The Date range, Limit, and Search row, with the results toolbar below it](images/search-filters.jpg)
+
 ## Reading the results
 
 - The summary line above the results (e.g. *"Showing 50 of 812 matched"*) shows how many results
@@ -23,6 +25,8 @@
 - If any point-cloud (`.laz`/`.las`) results are present, a tip explains that they can be
   downloaded but not added directly to the map.
 - **Next page**, next to the status message at the bottom, appears when more results are available.
+
+![A populated results list with thumbnails and the Select All / Download Selected / Show Footprints buttons](images/search-results-list.jpg)
 
 ## Each result row
 
@@ -36,3 +40,5 @@
     - **Download** -- prompts for a save location and downloads that one asset.
     - **Zoom** -- zooms the map to the item's bounding box.
     - **Footprint** -- draws just this item's footprint on the map.
+
+![A result row's hover tooltip showing the pretty-printed STAC item JSON](images/search-result-row.jpg)
