@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -85,6 +86,8 @@ namespace KyFromAboveSTAC
             ExportScriptCommand = new RelayCommand(async () => await OnExportScriptAsync(), () => !IsSearchBusy && Results.Count > 0);
             ShowFootprintsCommand = new RelayCommand(async () => await OnShowFootprintsAsync(), () => !IsSearchBusy && Results.Count > 0);
             ToggleSelectAllCommand = new RelayCommand(() => OnToggleSelectAll(), () => !IsSearchBusy && Results.Count > 0);
+            ShowHelpCommand = new RelayCommand(() => OnShowHelp(), () => true);
+            OpenDocsCommand = new RelayCommand(param => OnOpenDocs(param as string), param => true);
 
             var projectDir = Path.GetDirectoryName(Project.Current.DefaultGeodatabasePath);
             if (string.IsNullOrWhiteSpace(projectDir)) projectDir = Path.GetTempPath();
@@ -147,6 +150,25 @@ namespace KyFromAboveSTAC
                       "import them via the appropriate geoprocessing tools or use a point-cloud/ LAS dataset workflow.\n\n" +
                       "This tool supports downloading both raster (COG) and point-cloud assets.";
             System.Windows.MessageBox.Show(msg, "KyFromAbove-STAC: Download help", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+        }
+
+        /// <summary>Base URL of the published MkDocs site (see README.md / mkdocs.yml).</summary>
+        private const string DocsBaseUrl = "https://ianhorn.github.io/kyfromabove-stac-addin/";
+
+        /// <summary>Open a documentation page in the default browser. <paramref name="page"/> is the
+        /// page's slug (matches its .md filename without extension), or null/empty for the home page.</summary>
+        private void OnOpenDocs(string page)
+        {
+            var url = string.IsNullOrEmpty(page) ? DocsBaseUrl : $"{DocsBaseUrl}{page}/";
+            try
+            {
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Couldn't open the documentation page:\n{ex.Message}",
+                    "KyFromAbove-STAC", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            }
         }
 
         /// <summary>Show the DockPane.</summary>
@@ -455,6 +477,7 @@ namespace KyFromAboveSTAC
         public ICommand ToggleSelectAllCommand { get; }
         public ICommand BringYourOwnApiCommand { get; }
         public ICommand RemoveApiSourceCommand { get; }
+        public ICommand OpenDocsCommand { get; }
 
         #endregion
 
