@@ -951,33 +951,37 @@ namespace KyFromAboveSTAC
         /// </summary>
         private async Task OnExportScriptAsync()
         {
-            var toDownload = Results
-                .Where(r => r.IsSelected && r.DataAsset != null && IsDownloadableAsset(r.DataAsset))
-                .ToList();
-            if (toDownload.Count == 0)
-                toDownload = Results.Where(r => r.DataAsset != null && IsDownloadableAsset(r.DataAsset)).ToList();
-            if (toDownload.Count == 0) { StatusMessage = "No downloadable results to export."; return; }
-
-            var dlg = new ExportScriptDialog(DownloadFolder) { Owner = System.Windows.Application.Current?.MainWindow };
-            if (dlg.ShowDialog() != true) { StatusMessage = "Script export cancelled."; return; }
-
-            var destFolder = dlg.DestinationFolder;
-            try { Directory.CreateDirectory(destFolder); }
-            catch (Exception ex) { StatusMessage = "Bad destination folder: " + ex.Message; return; }
-            DownloadFolder = destFolder;
-
-            var assets = toDownload.Select(item =>
-            {
-                var (subFolder, fname) = ResolveDownloadDestination(item);
-                var relPath = subFolder != null ? subFolder + "/" + fname : fname;
-                return (Url: item.DataAsset.Href, RelPath: relPath);
-            }).ToList();
-
-            var concurrency = Math.Max(1, DownloadConcurrency);
-            var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-
+            // The whole method is wrapped, not just the file-writing steps below: an exception
+            // anywhere here (dialog construction/ShowDialog included) would otherwise propagate
+            // out of this RelayCommand's async handler and vanish silently -- the button would
+            // look like it "does nothing" instead of reporting what went wrong.
             try
             {
+                var toDownload = Results
+                    .Where(r => r.IsSelected && r.DataAsset != null && IsDownloadableAsset(r.DataAsset))
+                    .ToList();
+                if (toDownload.Count == 0)
+                    toDownload = Results.Where(r => r.DataAsset != null && IsDownloadableAsset(r.DataAsset)).ToList();
+                if (toDownload.Count == 0) { StatusMessage = "No downloadable results to export."; return; }
+
+                var dlg = new ExportScriptDialog(DownloadFolder) { Owner = System.Windows.Application.Current?.MainWindow };
+                if (dlg.ShowDialog() != true) { StatusMessage = "Script export cancelled."; return; }
+
+                var destFolder = dlg.DestinationFolder;
+                try { Directory.CreateDirectory(destFolder); }
+                catch (Exception ex) { StatusMessage = "Bad destination folder: " + ex.Message; return; }
+                DownloadFolder = destFolder;
+
+                var assets = toDownload.Select(item =>
+                {
+                    var (subFolder, fname) = ResolveDownloadDestination(item);
+                    var relPath = subFolder != null ? subFolder + "/" + fname : fname;
+                    return (Url: item.DataAsset.Href, RelPath: relPath);
+                }).ToList();
+
+                var concurrency = Math.Max(1, DownloadConcurrency);
+                var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+
                 if (dlg.SelectedFormat == ExportScriptFormat.Executable)
                 {
                     // The exe is a separate console project (tools\KyFromAboveDownloader\), pre-built

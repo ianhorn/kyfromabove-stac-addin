@@ -62,6 +62,11 @@ namespace KyFromAboveSTAC
 
         private void UpdateFormatHint()
         {
+            // ComboBoxItem's IsSelected="True" (set in XAML on the default item) fires
+            // SelectionChanged synchronously during InitializeComponent(), before later-declared
+            // elements like FormatHintText are wired up yet -- guard against that, and rely on
+            // the explicit UpdateFormatHint() call after InitializeComponent() in the ctor instead.
+            if (FormatHintText == null) return;
             var tag = (FormatCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "Executable";
             FormatHintText.Text = FormatHints.TryGetValue(tag, out var hint) ? hint : "";
         }
