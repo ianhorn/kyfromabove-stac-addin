@@ -230,6 +230,9 @@ _pkginfo.txt
 # Esri add-in packages (binary add-in packages produced by the ArcGIS Pro SDK)
 *.esriAddinX
 *.esriAddin
+# ...except the published downloads under docs-src/AddInX/ -- these are intentionally
+# committed so the docs site (built from docs-src/) can link to them directly.
+!/docs-src/AddInX/*.esriAddinX
 
 # Visual Studio cache files
 # files ending in .cache can be ignored

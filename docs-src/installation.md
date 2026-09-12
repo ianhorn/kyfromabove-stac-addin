@@ -24,6 +24,18 @@ actually installed on your machine is what gets compiled against -- building `fo
 machine that only has Pro 3.7 installed (or vice versa) will fail with assembly version mismatch
 errors (`CS1705`), not produce a working add-in for the version you wanted.
 
+## Download the pre-built add-in
+
+No Visual Studio or source build required -- download the `.esriAddinX` that matches your ArcGIS
+Pro version, then double-click it (or copy it to `%LocalAppData%\ESRI\ArcGISPro\AssemblyCache`) to
+install it through ArcGIS Pro's normal Add-In Manager flow:
+
+- [Download for ArcGIS Pro 3.6.x](AddInX/KyFromAboveSTACAddin-3.6.x.esriAddinX)
+- [Download for ArcGIS Pro 3.7 or later](AddInX/KyFromAboveSTACAddin-3.7.x.esriAddinX)
+
+These are rebuilt from the tip of each branch whenever a new release is cut; see
+[Build from source](#build-from-source) below if you'd rather build it yourself.
+
 ## Requirements
 
 - **ArcGIS Pro 3.7** or later (the add-in manifest targets `desktopVersion="3.7.0.1901"` on this
@@ -50,9 +62,9 @@ errors (`CS1705`), not produce a working add-in for the version you wanted.
    ArcGIS Pro normally -- once built, the add-in stays registered.
 
 !!! tip "No Visual Studio?"
-    You only need the compiled `.esriAddinX` file to *use* the add-in. Copy it to
-    `%LocalAppData%\ESRI\ArcGISPro\AssemblyCache` (or double-click it) and ArcGIS Pro will install
-    it through its normal Add-In Manager flow.
+    You only need the compiled `.esriAddinX` file to *use* the add-in -- grab one from
+    [Download the pre-built add-in](#download-the-pre-built-add-in) above instead of building from
+    source.
 
 ## Code signing (optional)
 
