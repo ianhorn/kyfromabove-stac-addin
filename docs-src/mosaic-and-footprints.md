@@ -17,7 +17,8 @@ time.
   has a **Cancel** button. Cancelling takes effect before the *next* step starts -- it can't
   interrupt a geoprocessing step that's already running.
 
-![A mosaic dataset layer added to the map from several search results](images/mosaic-on-map.jpg)
+<!-- SCREENSHOT: images/mosaic-on-map.jpg -- a mosaic dataset layer added to the map from
+     several search results -->
 
 ## Show Footprints
 
@@ -28,4 +29,5 @@ than stacking duplicates. Requires an open map view.
 Each result row also has its own **Footprint** button to draw just that one item's footprint (and
 zoom to it) without affecting the others.
 
-![The KyFromAbove Footprints layer showing outlined footprints, zoomed to their combined extent](images/footprints-on-map.jpg)
+<!-- SCREENSHOT: images/footprints-on-map.jpg -- the KyFromAbove Footprints layer showing
+     outlined footprints, zoomed to their combined extent -->

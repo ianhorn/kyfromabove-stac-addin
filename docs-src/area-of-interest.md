@@ -4,7 +4,8 @@ All AOI tools set the same search filter -- the STAC `intersects` geometry -- so
 you use takes effect. The current AOI is summarized as text below the AOI buttons; **Clear AOI**
 removes it.
 
-![The AOI panel with the summary text populated after setting an AOI](images/aoi-buttons.jpg)
+<!-- SCREENSHOT: images/aoi-buttons.jpg -- the AOI panel with the summary text populated
+     after setting an AOI -->
 
 ## Draw
 
@@ -12,7 +13,8 @@ Click **Draw ▾** and choose **Draw Point**, **Draw Line**, or **Draw Polygon**
 ArcGIS Pro sketch tool on the active map -- draw your shape and it becomes the search AOI. Requires
 an open map view.
 
-![The Draw dropdown open, showing Draw Point / Draw Line / Draw Polygon](images/aoi-draw-menu.jpg)
+<!-- SCREENSHOT: images/aoi-draw-menu.jpg -- the Draw dropdown open, showing Draw Point /
+     Draw Line / Draw Polygon -->
 
 ## Use Extent
 
@@ -36,7 +38,8 @@ Loads an AOI from a local `.shp` or `.geojson`/`.json` file. Unlike the other AO
 **works even without an open map view** -- useful before you've added any data to the project.
 Multiple features in the file are unioned into a single AOI geometry.
 
-![A drawn AOI, with its polygon summary populated below the AOI buttons](images/aoi-drawn-on-map.jpg)
+<!-- SCREENSHOT: images/aoi-drawn-on-map.jpg -- a drawn AOI, with its polygon summary
+     populated below the AOI buttons -->
 
 ## Mosaic All to Map
 
