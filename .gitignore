@@ -381,3 +381,6 @@ docs/
 site/
 .venv/
 venv/
+
+# tools/release.ps1 build staging (*.esriAddinX itself is already covered above)
+/release-staging/
