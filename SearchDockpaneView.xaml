@@ -76,7 +76,7 @@
             <Expander IsExpanded="True">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Collections"/>
+                        <TextBlock Text="Collections" Foreground="White"/>
                         <Button Content="?" Command="{Binding OpenDocsCommand}" CommandParameter="collections-and-sources"
                                 Width="18" Height="18" Padding="0" FontSize="10" Margin="4,0,0,0" Opacity="0.7"
                                 ToolTip="Help: Collections &amp; Sources"/>
@@ -88,7 +88,30 @@
                         <RowDefinition Height="120"/>
                     </Grid.RowDefinitions>
                     <Button Grid.Row="0" Content="Load collections" Margin="0,2"
-                            Command="{Binding LoadCollectionsCommand}" Padding="4,2" HorizontalAlignment="Left"/>
+                            Command="{Binding LoadCollectionsCommand}" Padding="6,3" HorizontalAlignment="Left"
+                            Background="#FF3F3F46" Foreground="White" BorderBrush="#FF6A6A6E" BorderThickness="1">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                        Padding="{TemplateBinding Padding}" CornerRadius="2">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       TextElement.Foreground="{TemplateBinding Foreground}"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.5"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="ButtonBorder" Property="Background" Value="#FF505058"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="ButtonBorder" Property="Background" Value="#FF2A2A2E"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Collections}">
                             <ItemsControl.ItemTemplate>
@@ -130,9 +153,11 @@
                 <Button Content="Use Extent" Command="{Binding UseExtentAoiCommand}" Padding="6,2" Margin="0,0,2,0"/>
                 <Button Content="Browse for AOI..." Command="{Binding BrowseAoiFileCommand}" Padding="6,2" Margin="0,0,2,0"
                         ToolTip="Load an AOI from a .shp or .geojson/.json file. Works even if no map is open."/>
+                <Button Content="Select Features" Command="{Binding SelectFeatureAoiCommand}" Padding="6,2" Margin="0,0,2,0"
+                        ToolTip="Click (or drag a box over) existing map features to use their combined geometry as the STAC search 'intersects' AOI."/>
             </WrapPanel>
             <WrapPanel Orientation="Horizontal" Margin="0,2,0,2" Width="Auto">
-                <TextBlock Text="Layer:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBlock Text="Map Layer:" VerticalAlignment="Center" Margin="0,0,4,0"/>
                 <ComboBox ItemsSource="{Binding MapLayers}" DisplayMemberPath="DisplayName"
                           SelectedItem="{Binding SelectedLayer}" MinWidth="160" Margin="0,0,2,0"/>
                 <TextBlock Text="{Binding SelectedLayerName}" VerticalAlignment="Center" Margin="0,0,4,0" Opacity="0.8"/>

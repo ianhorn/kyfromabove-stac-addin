@@ -75,6 +75,7 @@ namespace KyFromAboveSTAC
             DrawPointAoiCommand = new RelayCommand(async () => await OnDrawAoiAsync(DrawPointAoiTool.ToolId), () => !IsSearchBusy);
             DrawLineAoiCommand = new RelayCommand(async () => await OnDrawAoiAsync(DrawLineAoiTool.ToolId), () => !IsSearchBusy);
             DrawPolygonAoiCommand = new RelayCommand(async () => await OnDrawAoiAsync(DrawPolygonAoiTool.ToolId), () => !IsSearchBusy);
+            SelectFeatureAoiCommand = new RelayCommand(async () => await OnDrawAoiAsync(SelectFeatureAoiTool.ToolId), () => !IsSearchBusy);
             RefreshLayersCommand = new RelayCommand(async () => await OnRefreshLayersAsync(), () => !IsSearchBusy);
             UseLayerAoiCommand = new RelayCommand(async () => await OnUseLayerAoiAsync(), () => !IsSearchBusy && SelectedLayer != null);
                         MosaicAllCommand = new RelayCommand(async () => await OnMosaicAllAsync(),
@@ -465,6 +466,7 @@ namespace KyFromAboveSTAC
         public ICommand DrawPointAoiCommand { get; }
         public ICommand DrawLineAoiCommand { get; }
         public ICommand DrawPolygonAoiCommand { get; }
+        public ICommand SelectFeatureAoiCommand { get; }
         public ICommand RefreshLayersCommand { get; }
                         public ICommand UseLayerAoiCommand { get; }
         public ICommand UseExtentAoiCommand { get; }
@@ -585,25 +587,27 @@ namespace KyFromAboveSTAC
         /// Capture a geometry drawn by a Draw* AOI tool (already projected to WGS84),
         /// convert it to GeoJSON, and store it as the search 'intersects' AOI.
         /// </summary>
-        public void SetAoi(Geometry geometry)
+        public void SetAoi(Geometry geometry, string label = null)
         {
             if (geometry == null) return;
             try
             {
                 _intersectsGeoJson = Services.GeoJsonConverter.ToGeoJsonGeometry(geometry);
                 var e = geometry.Extent;
-                string label;
-                switch (geometry)
+                if (label == null)
                 {
-                    case MapPoint _:
-                        label = $"Point [{e.XMin:F4}, {e.YMin:F4}]";
-                        break;
-                    case Polyline _:
-                        label = $"Line [{e.XMin:F4}, {e.YMin:F4}, {e.XMax:F4}, {e.YMax:F4}]";
-                        break;
-                    default:
-                        label = $"Polygon [{e.XMin:F4}, {e.YMin:F4}, {e.XMax:F4}, {e.YMax:F4}]";
-                        break;
+                    switch (geometry)
+                    {
+                        case MapPoint _:
+                            label = $"Point [{e.XMin:F4}, {e.YMin:F4}]";
+                            break;
+                        case Polyline _:
+                            label = $"Line [{e.XMin:F4}, {e.YMin:F4}, {e.XMax:F4}, {e.YMax:F4}]";
+                            break;
+                        default:
+                            label = $"Polygon [{e.XMin:F4}, {e.YMin:F4}, {e.XMax:F4}, {e.YMax:F4}]";
+                            break;
+                    }
                 }
                 AoiText = label;
                 StatusMessage = "AOI set from drawn geometry.";
