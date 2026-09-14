@@ -51,6 +51,11 @@
               smallImage="GenericPolygon16" largeImage="GenericPolygon32">
           <tooltip heading="Draw Polygon AOI">Draw a polygon to use as the STAC search 'intersects' AOI.<disabledText /></tooltip>
         </tool>
+        <tool id="KyFromAbove_SelectFeatureAoiTool" caption="Select Feature AOI" className="SelectFeatureAoiTool"
+              loadOnClick="true" condition="esri_mapping_mapPane"
+              smallImage="SelectByBox16" largeImage="SelectByBox32">
+          <tooltip heading="Select Feature AOI">Click (or drag a box over) an existing feature to use its geometry as the STAC search 'intersects' AOI.<disabledText /></tooltip>
+        </tool>
       </controls>
       <dockPanes>
         <dockPane id="KyFromAbove_SearchDockpane" caption="KyFromAbove-STAC"
