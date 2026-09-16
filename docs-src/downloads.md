@@ -48,8 +48,10 @@ file, via a standard Save dialog) instead of using the shared destination-folder
 selected (or all) results that runs without ArcGIS Pro -- useful for very large batches, running on
 another machine, or scheduling for later.
 
-Choose an **output type** -- a self-contained executable (`.exe`, no dependencies), or a Python
-(`.py`, needs Python 3), PowerShell (`.ps1`), or shell (`.sh`) script -- and where the downloads (and
-the generated file itself) should be saved, then click **Export**.
+Choose an **output type** -- a Python script (`.py`, needs Python 3, selected by default), a
+Jupyter notebook (`.ipynb`, runs in Jupyter/JupyterLab, VS Code's notebook viewer, or Google
+Colab), a self-contained executable (`.exe`, no dependencies), a PowerShell script (`.ps1`), or a
+shell script (`.sh`) -- and where the downloads (and the generated file itself) should be saved,
+then click **Export**.
 
 ![The Export Script dialog: output type options and the downloads destination folder](images/export-script-dialog.jpg)
