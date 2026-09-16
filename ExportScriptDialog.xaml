@@ -58,10 +58,13 @@
 
         <TextBlock Grid.Row="1" Text="Output type" FontWeight="SemiBold" Foreground="Black" Margin="0,0,0,4"/>
         <StackPanel Grid.Row="2" x:Name="FormatButtonsPanel" Orientation="Vertical" Margin="0,0,0,2">
-            <Button x:Name="ExecutableButton" Tag="Executable" Content="Executable (.exe)" Click="FormatButton_Click"
+            <Button x:Name="PythonButton" Tag="Python" Content="Python script (.py)" Click="FormatButton_Click"
                     HorizontalContentAlignment="Left" Padding="8,4" Margin="0,0,0,2"
                     Background="#0078D7" Foreground="White" BorderBrush="#0078D7"/>
-            <Button x:Name="PythonButton" Tag="Python" Content="Python script (.py)" Click="FormatButton_Click"
+            <Button x:Name="NotebookButton" Tag="Notebook" Content="Jupyter notebook (.ipynb)" Click="FormatButton_Click"
+                    HorizontalContentAlignment="Left" Padding="8,4" Margin="0,0,0,2"
+                    Background="White" Foreground="Black" BorderBrush="Gray"/>
+            <Button x:Name="ExecutableButton" Tag="Executable" Content="Executable (.exe)" Click="FormatButton_Click"
                     HorizontalContentAlignment="Left" Padding="8,4" Margin="0,0,0,2"
                     Background="White" Foreground="Black" BorderBrush="Gray"/>
             <Button x:Name="PowerShellButton" Tag="PowerShell" Content="PowerShell script (.ps1)" Click="FormatButton_Click"

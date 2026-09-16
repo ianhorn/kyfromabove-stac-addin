@@ -14,6 +14,7 @@ namespace KyFromAboveSTAC
     {
         Executable,
         Python,
+        Notebook,
         PowerShell,
         Shell
     }
@@ -24,6 +25,7 @@ namespace KyFromAboveSTAC
         {
             ["Executable"] = "No install needed. Windows only. A single, self-contained .exe -- double-click to run.",
             ["Python"] = "Needs Python 3 on the machine that runs it.",
+            ["Notebook"] = "Runs in Jupyter/JupyterLab, VS Code's notebook viewer, or Google Colab.",
             ["PowerShell"] = "Windows only, no install needed.",
             ["Shell"] = "macOS/Linux/WSL. Needs curl."
         };
@@ -39,7 +41,7 @@ namespace KyFromAboveSTAC
         {
             InitializeComponent();
             DestinationBox.Text = defaultDestinationFolder ?? "";
-            _selectedFormatButton = ExecutableButton;
+            _selectedFormatButton = PythonButton;
             UpdateFormatHint();
             DestinationBox.Focus();
             DestinationBox.CaretIndex = DestinationBox.Text.Length;
@@ -54,6 +56,7 @@ namespace KyFromAboveSTAC
                 return tag switch
                 {
                     "Python" => ExportScriptFormat.Python,
+                    "Notebook" => ExportScriptFormat.Notebook,
                     "PowerShell" => ExportScriptFormat.PowerShell,
                     "Shell" => ExportScriptFormat.Shell,
                     _ => ExportScriptFormat.Executable

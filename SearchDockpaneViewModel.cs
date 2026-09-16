@@ -1042,6 +1042,10 @@ namespace KyFromAboveSTAC
                             ext = ".py";
                             script = BuildPythonDownloadScript(assets, destFolder, concurrency);
                             break;
+                        case ExportScriptFormat.Notebook:
+                            ext = ".ipynb";
+                            script = BuildNotebookDownloadScript(assets, destFolder, concurrency);
+                            break;
                         case ExportScriptFormat.PowerShell:
                             ext = ".ps1";
                             script = BuildPowerShellDownloadScript(assets, destFolder, concurrency);
@@ -1208,6 +1212,99 @@ namespace KyFromAboveSTAC
             lines.Add("if __name__ == \"__main__\":");
             lines.Add("    main()");
             return string.Join("\n", lines);
+        }
+
+        /// <summary>
+        /// Build a Jupyter notebook (.ipynb, nbformat 4) running the same download logic as
+        /// BuildPythonDownloadScript, split into cells: a markdown intro, a config cell
+        /// (destination/concurrency/asset list -- the part someone re-running this is most likely
+        /// to edit), a helper-function cell, and a run cell (the actual download loop and
+        /// summary). Written directly as nbformat JSON rather than via a notebook library -- the
+        /// format is simple enough, and this keeps this class dependency-free.
+        /// </summary>
+        private static string BuildNotebookDownloadScript(List<(string Url, string RelPath)> assets, string destFolder, int concurrency)
+        {
+            var introSource = new List<string>
+            {
+                "# KyFromAbove-STAC stand-alone download notebook",
+                "",
+                $"Generated {DateTime.Now:yyyy-MM-dd HH:mm} -- {assets.Count} asset(s).",
+                "",
+                "Run the cells below in order. Edit DEST_FOLDER / CONCURRENCY in the config cell if needed."
+            };
+
+            var configLines = new List<string>
+            {
+                "import concurrent.futures",
+                "import pathlib",
+                "import urllib.request",
+                "",
+                $"DEST_FOLDER = pathlib.Path(\"{EscapePy(destFolder)}\")",
+                $"CONCURRENCY = {concurrency}",
+                "",
+                "ASSETS = ["
+            };
+            foreach (var a in assets)
+                configLines.Add($"    (\"{EscapePy(a.Url)}\", \"{EscapePy(a.RelPath)}\"),");
+            configLines.Add("]");
+
+            var helperLines = new List<string>
+            {
+                "def fetch(url, rel_path):",
+                "    dest = DEST_FOLDER / rel_path",
+                "    dest.parent.mkdir(parents=True, exist_ok=True)",
+                "    try:",
+                "        urllib.request.urlretrieve(url, dest)",
+                "        return f\"OK   {rel_path}\"",
+                "    except Exception as ex:",
+                "        return f\"FAIL {rel_path}: {ex}\""
+            };
+
+            var runLines = new List<string>
+            {
+                "DEST_FOLDER.mkdir(parents=True, exist_ok=True)",
+                "ok = fail = 0",
+                "with concurrent.futures.ThreadPoolExecutor(max_workers=CONCURRENCY) as ex:",
+                "    for result in ex.map(lambda a: fetch(*a), ASSETS):",
+                "        print(result)",
+                "        if result.startswith(\"OK\"):",
+                "            ok += 1",
+                "        else:",
+                "            fail += 1",
+                "print(f\"\\nDone: {ok} succeeded, {fail} failed -> {DEST_FOLDER}\")"
+            };
+
+            var notebook = new
+            {
+                cells = new object[]
+                {
+                    NotebookCell("markdown", introSource),
+                    NotebookCell("code", configLines),
+                    NotebookCell("code", helperLines),
+                    NotebookCell("code", runLines)
+                },
+                metadata = new
+                {
+                    kernelspec = new { display_name = "Python 3", language = "python", name = "python3" },
+                    language_info = new { name = "python" }
+                },
+                nbformat = 4,
+                nbformat_minor = 5
+            };
+            return System.Text.Json.JsonSerializer.Serialize(notebook, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+
+        /// <summary>nbformat cell object: "source" is an array of lines, each (but the last) ending
+        /// in "\n" -- nbformat's own convention for how a multi-line cell body is represented.</summary>
+        private static object NotebookCell(string cellType, IReadOnlyList<string> lines)
+        {
+            var source = new string[lines.Count];
+            for (int i = 0; i < lines.Count; i++)
+                source[i] = i < lines.Count - 1 ? lines[i] + "\n" : lines[i];
+
+            return cellType == "code"
+                ? new { cell_type = cellType, metadata = new { }, execution_count = (int?)null, outputs = Array.Empty<object>(), source }
+                : (object)new { cell_type = cellType, metadata = new { }, source };
         }
 
         /// <summary>
