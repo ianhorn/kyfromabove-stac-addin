@@ -7,6 +7,7 @@
  * constructor) — this is the reliable Pro SDK pattern: a single tool instance
  * with a dynamically-changed SketchType does not switch sketch behavior.
  */
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -77,7 +78,11 @@ namespace KyFromAboveSTAC
         {
             IsSketchTool = true;
             SketchType = SketchGeometryType.Rectangle;
-            SketchOutputMode = SketchOutputMode.Map;
+            // Screen (not Map) coordinates -- MapView.SelectFeatures throws in 3D scenes if handed
+            // a map-coordinate sketch ("3D views only support selecting features interactively
+            // using geometry in screen coordinates..."); screen coordinates work for both 2D maps
+            // and 3D scenes, so this is the one mode that works everywhere.
+            SketchOutputMode = SketchOutputMode.Screen;
         }
 
         protected override async Task<bool> OnSketchCompleteAsync(Geometry geometry)
@@ -143,6 +148,16 @@ namespace KyFromAboveSTAC
                 FrameworkApplication.DockPaneManager.Find("KyFromAbove_SearchDockpane")?.Activate();
 
                 return true;
+            }
+            catch (Exception ex)
+            {
+                // A malformed feature geometry (e.g. a bad SR/Z mismatch written by some other tool)
+                // could throw here during Project/Union -- show it instead of letting it escape
+                // OnSketchCompleteAsync unhandled, which has previously crashed Pro entirely rather
+                // than just failing this one selection.
+                MessageBox.Show($"Couldn't use the selected feature(s) as an AOI: {ex.Message}",
+                    "KyFromAbove-STAC", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
             }
             finally
             {
