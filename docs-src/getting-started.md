@@ -15,7 +15,7 @@ alongside the Contents pane by default) that stays open as you work.
    checkbox list from the built-in KyFromAbove catalog (and any [extra API sources](collections-and-sources.md)
    you've added). Leave everything unchecked to search *all* collections, or check specific ones to
    narrow the search.
-2. **Set an area of interest** *(optional)*. Use the **Draw** dropdown, **Use Extent**, **Use
+2. **Set an area of interest** *(optional)*. Use the **Draw...** dropdown, **Use Extent**, **Use
    Layer**, or **Browse for AOI...** -- see [Area of Interest](area-of-interest.md) for details.
    Skip this step to search without a spatial filter.
 3. **Set a date range** *(optional)*. Expand **Date range (optional)** and pick start/end dates.

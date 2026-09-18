@@ -17,6 +17,12 @@ time.
   has a **Cancel** button. Cancelling takes effect before the *next* step starts -- it can't
   interrupt a geoprocessing step that's already running.
 
+!!! note "Large batches (100+ tiles)"
+    Above 100 mosaic-eligible tiles, **Mosaic All to Map** is disabled outright -- narrow your search
+    or select fewer tiles first. Below that, **Build overviews** defaults to unchecked once you're
+    over 100 tiles (building overviews over that many COGs can take a long time), unless you've
+    already set it yourself, in which case your choice sticks.
+
 ![The Mosaic progress dialog reporting each step as the mosaic dataset is built](images/mosaic-on-map.jpg)
 
 ## Show Footprints

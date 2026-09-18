@@ -7,6 +7,10 @@ result is used instead. You'll be prompted to **pick a destination folder** -- t
 persistent "download to" box, so this happens fresh each time; the dialog starts in whatever folder
 you picked last.
 
+!!! note "Large batches (100+ tiles)"
+    Downloading more than 100 tiles at once shows a confirmation dialog first ("Downloading a larger
+    number of tiles can take a significant amount of time. Continue?") before starting.
+
 A progress dialog shows per-asset status as downloads run, with a **Cancel** button that stops any
 downloads still in progress (already-completed files are kept).
 
