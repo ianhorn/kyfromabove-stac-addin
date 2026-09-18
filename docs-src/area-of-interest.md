@@ -8,7 +8,7 @@ removes it.
 
 ## Draw
 
-Click **Draw ▾** and choose **Draw Point**, **Draw Line**, or **Draw Polygon**. This activates an
+Click **Draw...** and choose **Draw Point**, **Draw Line**, or **Draw Polygon**. This activates an
 ArcGIS Pro sketch tool on the active map -- draw your shape and it becomes the search AOI. Requires
 an open map view.
 
