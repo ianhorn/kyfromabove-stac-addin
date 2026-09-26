@@ -4,8 +4,6 @@ All AOI tools set the same search filter -- the STAC `intersects` geometry -- so
 you use takes effect. The current AOI is summarized as text below the AOI buttons; **Clear AOI**
 removes it.
 
-![The AOI panel, showing all AOI buttons including Select Features](images/aoi-buttons.jpg)
-
 ## Draw
 
 Click **Draw...** and choose **Draw Point**, **Draw Line**, or **Draw Polygon**. This activates an
