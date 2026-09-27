@@ -4,7 +4,12 @@
  * of the whole current source list (Replace all sources).
  */
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using KyFromAboveSTAC.Stac;
 
 namespace KyFromAboveSTAC
 {
@@ -18,10 +23,60 @@ namespace KyFromAboveSTAC
 
     public partial class AddApiSourceDialog : Window
     {
+        private readonly CancellationTokenSource _cts = new();
+
         public AddApiSourceDialog()
         {
             InitializeComponent();
+            if (ProTheme.IsDark) ApplyDarkPalette();
             NameBox.Focus();
+            Loaded += async (_, _) => await LoadCatalogsAsync();
+            Closed += (_, _) => _cts.Cancel();
+        }
+
+        /// <summary>Replace the catalog dropdown's light palette (defined in the XAML) with a dark one.</summary>
+        private void ApplyDarkPalette()
+        {
+            static SolidColorBrush Brush(string hex) => new((Color)ColorConverter.ConvertFromString(hex));
+            Resources["CatalogComboBackground"] = Brush("#FF1E1E1E");
+            Resources["CatalogComboForeground"] = Brush("#FFFFFFFF");
+            Resources["CatalogComboBorder"] = Brush("#FF6A6A6E");
+            Resources["CatalogComboHint"] = Brush("#FFB0B0B0");
+            Resources["CatalogComboItemHighlight"] = Brush("#FF0078D7");
+            Resources["CatalogComboItemSelected"] = Brush("#FF3F3F46");
+        }
+
+        /// <summary>Fill the dropdown from STAC Index. On failure the dropdown just stays disabled -- typing a URL still works.</summary>
+        private async Task LoadCatalogsAsync()
+        {
+            CatalogCombo.IsEnabled = false;
+            CatalogCombo.Tag = "Loading catalogs from STAC Index...";
+            try
+            {
+                var catalogs = await StacIndexClient.GetSearchableCatalogsAsync(_cts.Token);
+                CatalogCombo.ItemsSource = catalogs;
+                CatalogCombo.IsEnabled = catalogs.Count > 0;
+                CatalogCombo.Tag = catalogs.Count > 0 ? "Select a catalog..." : "No catalogs found";
+            }
+            catch (Exception) when (_cts.IsCancellationRequested)
+            {
+                // Dialog closed while loading.
+            }
+            catch (Exception)
+            {
+                // Offer just Kentucky's own catalog so there's still a way back to the default.
+                CatalogCombo.ItemsSource = new[] { StacIndexClient.BuiltIn };
+                CatalogCombo.IsEnabled = true;
+                CatalogCombo.Tag = "Couldn't reach STAC Index -- only KyFromAbove is listed";
+            }
+        }
+
+        private void CatalogCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CatalogCombo.SelectedItem is not StacIndexCatalog catalog) return;
+            NameBox.Text = catalog.Name;
+            UrlBox.Text = catalog.Url;
+            ErrorText.Visibility = Visibility.Collapsed;
         }
 
         /// <summary>User-entered source name (falls back to the URL if left blank).</summary>
