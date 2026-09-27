@@ -23,10 +23,24 @@ STAC API (for example, a self-hosted [stac-fastapi](https://github.com/stac-util
 `/collections` and `/search` endpoints.
 
 1. Click **Bring Your Own API...** at the top of the pane.
-2. Enter a **Name** (used to label collections from that source) and the **STAC API base URL**.
+2. Either pick a catalog from the **Choose a public API from STAC Index** dropdown, which fills in
+   the Name and URL for you, or type your own: a **Name** (used to label collections from that
+   source) and the **STAC API base URL**. You can edit the filled-in values before continuing.
 3. Choose:
     - **Add** &mdash; keep the current source(s) and add this one alongside them.
     - **Replace all sources** &mdash; drop every current source and search only this API.
+
+The dropdown is loaded live from [STAC Index](https://stacindex.org/) when the dialog opens. It
+lists only public catalogs that expose a searchable STAC API: catalogs that need a login or API key,
+static (non-searchable) catalogs, and openEO endpoints are left out. If STAC Index can't be
+reached, you can still enter a URL by hand.
+
+### Getting back to the KyFromAbove catalog
+
+**KyFromAbove (Kentucky's default catalog)** is always the first entry in the dropdown, even when
+STAC Index can't be reached. After switching to another API, open **Bring Your Own API...**, pick
+it, and click **Replace all sources** to restore the built-in source. Clicking **Add** with it
+selected adds it back alongside your other sources instead (or tells you it's already active).
 
 Active sources are shown as small chips under the button. Any source you added (not the built-in
 default) has a small **x** to remove it, which also clears any collections/results that came from
