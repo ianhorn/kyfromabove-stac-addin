@@ -23,7 +23,7 @@
 - **Download Selected** downloads the selected assets -- see [Downloads](downloads.md).
 - **Show Footprints** draws every current result's footprint on the map.
 - If any point-cloud (`.laz`/`.las`) results are present, a tip explains that they can be
-  downloaded but not added directly to the map.
+  downloaded but not added directly to the map, and that COPC tiles have a **View** button (the "?" next to the tip explains it).
 - **Next page**, next to the status message at the bottom, appears when more results are available.
 
 ![A populated results list with thumbnails and the Select All / Download Selected / Show Footprints buttons](images/search-results-list.jpg)
@@ -33,12 +33,16 @@
 - **Thumbnail** (when enabled) -- loaded automatically per item.
 - **Checkbox** -- selects the item for bulk actions.
 - **Title, collection, date, status** -- status shows download progress or errors for that item.
-- **Hover tooltip** -- shows the full underlying STAC item as pretty-printed JSON (id, properties,
-  assets, links, geometry). Handy for checking exact metadata without leaving the pane.
+- **Hover card** -- hovering a result for a moment shows the full underlying STAC item as
+  pretty-printed JSON (id, properties, assets, links, geometry). Move the mouse onto the card to
+  scroll it, select and copy text, or click any URL in it (asset and thumbnail links) to open it in
+  your browser. It closes shortly after the mouse leaves both the result and the card.
 - **Per-item buttons:**
     - **Add** -- adds the item's raster (COG) asset directly to the active map.
+    - **View** -- shown instead of Add for COPC point-cloud results. Opens the tile in the
+      [KyFromAbove LiDAR Point Cloud Viewer](https://kygeonet.ky.gov/copc/viewer) in your web browser.
     - **Download** -- prompts for a save location and downloads that one asset.
     - **Zoom** -- zooms the map to the item's bounding box.
     - **Footprint** -- draws just this item's footprint on the map.
 
-![A result row's hover tooltip showing the pretty-printed STAC item JSON](images/search-result-row.jpg)
+![A result row's hover card showing the pretty-printed STAC item JSON](images/search-result-row.jpg)

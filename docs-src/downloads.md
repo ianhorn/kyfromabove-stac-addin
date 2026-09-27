@@ -15,7 +15,9 @@ A progress dialog shows per-asset status as downloads run, with a **Cancel** but
 downloads still in progress (already-completed files are kept).
 
 Both raster (COG) and point-cloud (`.laz`/`.las`, etc.) assets can be downloaded this way, even
-though point-clouds can't be added directly to the map.
+though point-clouds can't be added directly to the map. COPC point-cloud results have a **View**
+button instead of **Add**, which opens the tile in the
+[KyFromAbove LiDAR Point Cloud Viewer](https://kygeonet.ky.gov/copc/viewer) in your web browser.
 
 ![The download progress dialog, showing per-asset byte counts as downloads run](images/downloads-progress.jpg)
 
