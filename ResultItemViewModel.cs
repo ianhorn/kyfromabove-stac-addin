@@ -28,6 +28,7 @@ namespace KyFromAboveSTAC
             CollectionTitle = collection?.TitleOrId ?? item.Collection ?? item.Id;
 
             AddToMapCommand = new RelayCommand(async () => await OnAddToMapAsync(), () => !IsDownloading);
+            ViewInBrowserCommand = new RelayCommand(OnViewInBrowser);
             DownloadCommand = new RelayCommand(async () => await OnDownloadAsync(), () => !IsDownloading);
             ZoomToCommand = new RelayCommand(async () => await OnZoomToAsync(), () => !IsDownloading);
             ShowFootprintCommand = new RelayCommand(async () => await OnShowFootprintAsync(), () => !IsDownloading);
@@ -56,14 +57,19 @@ namespace KyFromAboveSTAC
         public string DateText { get; }
 
         private string _detailJson;
-        /// <summary>Pretty-printed JSON of the underlying STAC item -- shown as a tooltip when hovering over the result row.</summary>
+        /// <summary>Pretty-printed JSON of the underlying STAC item -- shown in the hover card when hovering over the result row.</summary>
         public string DetailJson => _detailJson ??= BuildDetailJson();
 
         private string BuildDetailJson()
         {
             try
             {
-                return JsonSerializer.Serialize(Item, new JsonSerializerOptions { WriteIndented = true });
+                // Relaxed escaping keeps '&' and '+' literal, so URLs with query strings stay intact and clickable in the hover card.
+                return JsonSerializer.Serialize(Item, new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
             }
             catch (Exception ex)
             {
@@ -96,6 +102,37 @@ namespace KyFromAboveSTAC
         }
 
         public ICommand AddToMapCommand { get; }
+        public ICommand ViewInBrowserCommand { get; }
+
+        /// <summary>
+        /// True when the data asset is a COPC point cloud (e.g. "N074E297_LAS_Phase2.copc.laz"). Those can't be
+        /// added to the map, but the KyFromAbove COPC viewer can open them, so the row shows "View" instead of "Add".
+        /// </summary>
+        public bool IsCopc =>
+            DataAsset != null &&
+            ((DataAsset.Href ?? "").IndexOf(".copc", StringComparison.OrdinalIgnoreCase) >= 0 ||
+             (DataAsset.Type ?? "").IndexOf("copc", StringComparison.OrdinalIgnoreCase) >= 0);
+
+        /// <summary>Inverse of <see cref="IsCopc"/>, for hiding the Add button (XAML has no negation converter here).</summary>
+        public bool CanAddToMap => !IsCopc;
+
+        private const string CopcViewerUrl = "https://kygeonet.ky.gov/copc/viewer?url=";
+
+        private void OnViewInBrowser()
+        {
+            if (!IsCopc || string.IsNullOrWhiteSpace(DataAsset.Href)) return;
+            try
+            {
+                // The viewer reads the "url" query parameter with URLSearchParams, which decodes percent-encoding.
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                    CopcViewerUrl + Uri.EscapeDataString(DataAsset.Href)) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Status = "Couldn't open the viewer: " + ex.Message;
+            }
+        }
+
         public ICommand DownloadCommand { get; }
         public ICommand ZoomToCommand { get; }
         public ICommand ShowFootprintCommand { get; }

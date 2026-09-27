@@ -146,11 +146,15 @@ namespace KyFromAboveSTAC
 
         private void OnShowHelp()
         {
-            var msg = "Point-cloud assets (e.g. .laz, .las) cannot be added directly to the map from this UI.\n\n" +
+            var msg = "View: opens the KyFromAbove LiDAR Point Cloud Viewer in your web browser.\n\n" +
+                      "COPC point-cloud results (the .copc.laz tiles) have a View button in place of Add. Clicking it opens " +
+                      "https://kygeonet.ky.gov/copc/viewer in your default browser with that tile loaded. Nothing is added to your map " +
+                      "or saved by this add-in.\n\n" +
+                      "Point-cloud assets (e.g. .laz, .las) cannot be added directly to the map from this UI.\n\n" +
                       "You can select and download them for external processing. If you need to work with point-clouds inside ArcGIS Pro, " +
                       "import them via the appropriate geoprocessing tools or use a point-cloud/ LAS dataset workflow.\n\n" +
                       "This tool supports downloading both raster (COG) and point-cloud assets.";
-            System.Windows.MessageBox.Show(msg, "KyFromAbove-STAC: Download help", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            System.Windows.MessageBox.Show(msg, "KyFromAbove-STAC: Point-cloud help", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
         }
 
         /// <summary>Base URL of the published MkDocs site (see README.md / mkdocs.yml).</summary>
@@ -539,10 +543,22 @@ namespace KyFromAboveSTAC
             var dlg = new AddApiSourceDialog { Owner = System.Windows.Application.Current?.MainWindow };
             if (dlg.ShowDialog() != true || dlg.Result == AddApiSourceResult.Cancel) return;
 
-            var newSource = new StacApiSource(
-                string.IsNullOrWhiteSpace(dlg.SourceName) ? dlg.BaseUrl : dlg.SourceName,
-                dlg.BaseUrl,
-                isDefault: dlg.Result == AddApiSourceResult.Replace); // sole source after a replace behaves like the default (no "remove" button, no label suffix)
+            if (dlg.Result == AddApiSourceResult.Add &&
+                ApiSources.Any(s => string.Equals(s.BaseUri?.TrimEnd('/'), dlg.BaseUrl, StringComparison.OrdinalIgnoreCase)))
+            {
+                StatusMessage = "That API is already one of the active sources.";
+                return;
+            }
+
+            // Picking Kentucky's catalog and replacing everything restores the original built-in source.
+            var restoreBuiltIn = dlg.Result == AddApiSourceResult.Replace &&
+                string.Equals(dlg.BaseUrl, StacClient.DefaultBaseUri, StringComparison.OrdinalIgnoreCase);
+            var newSource = restoreBuiltIn
+                ? new StacApiSource(StacIndexClient.BuiltInName, Module1.Current.StacClient, isDefault: true)
+                : new StacApiSource(
+                    string.IsNullOrWhiteSpace(dlg.SourceName) ? dlg.BaseUrl : dlg.SourceName,
+                    dlg.BaseUrl,
+                    isDefault: dlg.Result == AddApiSourceResult.Replace); // sole source after a replace behaves like the default (no "remove" button, no label suffix)
 
             if (dlg.Result == AddApiSourceResult.Replace)
             {
