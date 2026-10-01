@@ -58,6 +58,20 @@ namespace KyFromAboveSTAC
             }), DispatcherPriority.Normal);
         }
 
+        /// <summary>
+        /// Call once, in a caller's "finally", when the operation is over. Disables Cancel, appends
+        /// <paramref name="finalMessage"/>, and closes the window only when <paramref name="autoClose"/>
+        /// is true -- a total failure or an unhandled exception should pass false, so the log stays on
+        /// screen for the user to read instead of flashing past as the window closes itself. The user
+        /// can still dismiss it any time with the always-available Close button.
+        /// </summary>
+        public void Finish(bool autoClose, string finalMessage = "Done.")
+        {
+            DisableCancel();
+            Append(finalMessage);
+            if (autoClose) CloseWhenReady();
+        }
+
         private bool _cancelRaised;
         private void RaiseCancelRequested()
         {
