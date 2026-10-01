@@ -184,6 +184,14 @@ namespace KyFromAboveSTAC
             pane.Activate();
         }
 
+        /// <summary>A second entry point alongside the ribbon's Feedback button -- see
+        /// FeedbackDialog.xaml. Not everyone notices a small ribbon button, and this pane is open
+        /// whenever KyFromAbove-STAC is in use.</summary>
+        public ICommand FeedbackCommand => new RelayCommand(ShowFeedbackDialog);
+
+        private static void ShowFeedbackDialog() =>
+            new FeedbackDialog { Owner = System.Windows.Application.Current?.MainWindow }.ShowDialog();
+
         #endregion
 
         #region Bound properties
