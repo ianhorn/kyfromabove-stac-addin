@@ -752,6 +752,7 @@ namespace KyFromAboveSTAC
             var dlg = new ProgressDialog("Mosaic progress");
             dlg.Show();
             dlg.CancelRequested += (s, e) => cts.Cancel();
+            var succeeded = false; // only set true on the happy path below; left false on any early return or exception
 
             bool Cancelled(ProgressDialog d)
             {
@@ -782,8 +783,9 @@ namespace KyFromAboveSTAC
                     // LayerFactory.CreateLayer call below adds it again -- that's the duplicate-layer bug.
                     dlg.Append("Creating mosaic dataset...");
                     var createArgs = Geoprocessing.MakeValueArray(gdb, mosaicName, sr);
-                    var createRes = await Geoprocessing.ExecuteToolAsync("management.CreateMosaicDataset", createArgs,
-                        null, null, null, GPExecuteToolFlags.None).ConfigureAwait(true);
+                    var createRes = await RunGpWithHeartbeat(dlg, "creating the mosaic dataset", () =>
+                        Geoprocessing.ExecuteToolAsync("management.CreateMosaicDataset", createArgs,
+                            null, null, null, GPExecuteToolFlags.None)).ConfigureAwait(true);
                     if (createRes.IsFailed) { StatusMessage = "CreateMosaicDataset failed: " + GpMessages(createRes); return; }
                     string mosaicPath = System.IO.Path.Combine(gdb, mosaicName);
                     if (Cancelled(dlg)) return;
@@ -791,23 +793,34 @@ namespace KyFromAboveSTAC
                     // 2) Add Rasters To Mosaic Dataset: (in_mosaic_dataset, raster_type, data_path)
                     dlg.Append($"Adding {hrefs.Count} rasters to mosaic...");
                     var addArgs = Geoprocessing.MakeValueArray(mosaicPath, "Raster Dataset", string.Join(";", hrefs));
-                    var addRes = await Geoprocessing.ExecuteToolAsync("management.AddRastersToMosaicDataset", addArgs,
-                        null, null, null, GPExecuteToolFlags.None).ConfigureAwait(true);
+                    var addRes = await RunGpWithHeartbeat(dlg, "adding rasters to the mosaic", () =>
+                        Geoprocessing.ExecuteToolAsync("management.AddRastersToMosaicDataset", addArgs,
+                            null, null, null, GPExecuteToolFlags.None)).ConfigureAwait(true);
                     if (addRes.IsFailed) { StatusMessage = "AddRastersToMosaicDataset failed: " + GpMessages(addRes); return; }
                     if (Cancelled(dlg)) return;
 
-                    // (optional) Define + Build overviews for faster display at small scales.
+                    // (optional) Define + Build overviews for faster display at small scales. Both run with
+                    // ArcGIS's own defaults, which regenerate every overview from scratch (GENERATE_OVERVIEWS,
+                    // REGENERATE_STALE_IMAGES) -- nothing is skipped. That's also inherent to a fresh mosaic
+                    // dataset: since mosaicName is a new timestamped dataset every run, there is never an
+                    // existing overview to skip in the first place.
                     if (buildOverviews)
                     {
                         dlg.Append("Defining overviews...");
-                        var defRes = await Geoprocessing.ExecuteToolAsync("management.DefineOverviews",
-                            Geoprocessing.MakeValueArray(mosaicPath), null, null, null, GPExecuteToolFlags.None).ConfigureAwait(true);
+                        var defRes = await RunGpWithHeartbeat(dlg, "defining overviews", () =>
+                            Geoprocessing.ExecuteToolAsync("management.DefineOverviews",
+                                Geoprocessing.MakeValueArray(mosaicPath), null, null, null, GPExecuteToolFlags.None)).ConfigureAwait(true);
                         if (defRes.IsFailed) { StatusMessage = "DefineOverviews failed: " + GpMessages(defRes); return; }
                         if (Cancelled(dlg)) return;
 
+                        // No progress feedback comes from the tool itself while this runs -- it reads pixel
+                        // data from every COG (often over HTTPS) to build the mosaic-level overview images,
+                        // which for more than a handful of tiles can take minutes. RunGpWithHeartbeat's
+                        // periodic log lines are what keep this from looking identical to a stalled run.
                         dlg.Append("Building overviews (this can take a while)...");
-                        var buildRes = await Geoprocessing.ExecuteToolAsync("management.BuildOverviews",
-                            Geoprocessing.MakeValueArray(mosaicPath), null, null, null, GPExecuteToolFlags.None).ConfigureAwait(true);
+                        var buildRes = await RunGpWithHeartbeat(dlg, "building overviews", () =>
+                            Geoprocessing.ExecuteToolAsync("management.BuildOverviews",
+                                Geoprocessing.MakeValueArray(mosaicPath), null, null, null, GPExecuteToolFlags.None)).ConfigureAwait(true);
                         if (buildRes.IsFailed) { StatusMessage = "BuildOverviews failed: " + GpMessages(buildRes); return; }
                         if (Cancelled(dlg)) return;
                     }
@@ -822,6 +835,7 @@ namespace KyFromAboveSTAC
                             mv.Map);
                         StatusMessage = $"Mosaic layer '{mosaicName}' created with {hrefs.Count} COG(s)" + (buildOverviews ? " + overviews." : ".");
                         dlg.Append(StatusMessage);
+                        succeeded = true;
                     }
                     else { StatusMessage = "Mosaic created but could not be added to the map."; dlg.Append(StatusMessage); }
                 });
@@ -829,9 +843,13 @@ namespace KyFromAboveSTAC
             catch (System.Exception ex) { StatusMessage = "Mosaic failed: " + ex.Message; dlg.Append(StatusMessage); }
             finally
             {
-                dlg.DisableCancel();
-                dlg.Append("Done.");
-                dlg.CloseWhenReady();
+                // A failed GP step (or an exception) sets StatusMessage/logs the reason and returns,
+                // leaving succeeded false -- previously the dialog auto-closed here regardless, so a
+                // fast failure (e.g. CreateMosaicDataset erroring immediately) could flash past and
+                // close before it could be read, looking like the tool "just stopped" with nothing
+                // created. Cancelling is still treated as a clean close: the user asked for that.
+                dlg.Finish(autoClose: succeeded || cts.IsCancellationRequested,
+                    finalMessage: succeeded || cts.IsCancellationRequested ? "Done." : "Failed -- see the log above. Click Close to dismiss.");
             }
         }
 
@@ -890,10 +908,11 @@ namespace KyFromAboveSTAC
             dlg.Append($"Downloading {toDownload.Count} asset(s) to:\n  {DownloadFolder}\n({concurrency} parallel thread(s))");
             dlg.Show();
             dlg.CancelRequested += (s, e) => cts.Cancel(); // Cancel button or closing the window stops the remaining downloads
+            long ok = 0, fail = 0; // read in the "finally" below to decide whether anything actually happened
 
             try
             {
-                long ok = 0, fail = 0, bytes = 0;
+                long bytes = 0;
                 var sem = new SemaphoreSlim(concurrency, concurrency);
                 var tasks = new List<Task>();
 
@@ -940,9 +959,11 @@ namespace KyFromAboveSTAC
             catch (Exception ex) { StatusMessage = "Download failed: " + ex.Message; dlg.Append(StatusMessage); }
             finally
             {
-                dlg.DisableCancel();
-                dlg.Append("Download complete.");
-                dlg.CloseWhenReady();
+                // Same reasoning as OnMosaicAllAsync's dlg.Finish call: a total failure (nothing
+                // downloaded) used to auto-close the log before it could be read. A partial failure
+                // still auto-closes, since at least some files did land where expected.
+                var autoClose = ok > 0 || cts.IsCancellationRequested;
+                dlg.Finish(autoClose, autoClose ? "Download complete." : "Nothing downloaded -- see the log above. Click Close to dismiss.");
             }
         }
 
@@ -1398,10 +1419,69 @@ namespace KyFromAboveSTAC
             }
         }
 
+        /// <summary>
+        /// Extract a human-readable reason from a failed IGPResult. <c>result.Messages</c> (used here
+        /// previously) is every message the tool logged -- informational, process start/end, warnings,
+        /// errors -- and for some tools the actual error text lands only in the separate
+        /// <c>result.ErrorMessages</c> collection, not in <c>Messages</c> at all. Joining just
+        /// <c>Messages</c> could then produce an empty string even for a real failure, appending a
+        /// blank-looking "X failed: " line with no visible reason. Prefer ErrorMessages, then fall back
+        /// to Error/Abort/GDBError-severity entries from Messages, then to Messages entirely, then to
+        /// the tool's error code.
+        /// </summary>
         private static string GpMessages(IGPResult result)
         {
-            try { return string.Join(" ", (result.Messages ?? Enumerable.Empty<IGPMessage>()).Select(m => m.Text ?? "")); }
+            try
+            {
+                string Join(IEnumerable<IGPMessage> src) =>
+                    string.Join(" ", (src ?? Enumerable.Empty<IGPMessage>()).Select(m => m.Text).Where(t => !string.IsNullOrWhiteSpace(t)));
+
+                var text = Join(result.ErrorMessages);
+                if (string.IsNullOrWhiteSpace(text))
+                    text = Join(result.Messages?.Where(m =>
+                        m.Type == GPMessageType.Error || m.Type == GPMessageType.Abort || m.Type == GPMessageType.GDBError));
+                if (string.IsNullOrWhiteSpace(text))
+                    text = Join(result.Messages);
+                return string.IsNullOrWhiteSpace(text)
+                    ? $"(the tool returned no message text; error code {result.ErrorCode})"
+                    : text;
+            }
             catch { return "see GP messages"; }
+        }
+
+        /// <summary>
+        /// Runs a geoprocessing call while periodically logging an elapsed-time line to the progress dialog.
+        /// A GP tool call gives no progress of its own here, so a step that's just slow (e.g. BuildOverviews
+        /// reading pixel data from many/large COGs) would otherwise look identical to one that's stalled --
+        /// the dialog logs nothing between the "started" line and the eventual result.
+        /// </summary>
+        private static readonly TimeSpan GpHeartbeatInterval = TimeSpan.FromSeconds(15);
+
+        internal static async Task<T> RunGpWithHeartbeat<T>(ProgressDialog dlg, string activityLabel, Func<Task<T>> startTool, TimeSpan? interval = null)
+        {
+            var sw = Stopwatch.StartNew();
+            using var stop = new CancellationTokenSource();
+            var heartbeat = Task.Run(async () =>
+            {
+                try
+                {
+                    while (true)
+                    {
+                        await Task.Delay(interval ?? GpHeartbeatInterval, stop.Token).ConfigureAwait(false);
+                        dlg.Append($"Still {activityLabel}... {sw.Elapsed:mm\\:ss} elapsed.");
+                    }
+                }
+                catch (OperationCanceledException) { /* stopped once the tool call below finishes */ }
+            });
+            try
+            {
+                return await startTool().ConfigureAwait(true);
+            }
+            finally
+            {
+                stop.Cancel();
+                try { await heartbeat.ConfigureAwait(true); } catch { /* heartbeat's own delay cancellation */ }
+            }
         }
 
         private static bool IsRasterAsset(Stac.StacAsset a)
