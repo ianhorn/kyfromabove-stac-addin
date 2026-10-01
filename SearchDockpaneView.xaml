@@ -174,10 +174,9 @@
                         ToolTip="Help: Area of Interest"/>
             </StackPanel>
             <WrapPanel Orientation="Horizontal" Margin="0,0,0,2">
-                <ToggleButton x:Name="DrawAoiButton" Content="Draw..." Padding="6,2" Margin="0,0,2,0"
+                <Button x:Name="DrawAoiButton" Content="Draw..." Click="DrawAoiButton_Click" Padding="6,2" Margin="0,0,2,0"
                         ToolTip="Draw a point, line, or polygon AOI on the map."/>
                 <Popup x:Name="DrawAoiPopup" PlacementTarget="{Binding ElementName=DrawAoiButton}"
-                       IsOpen="{Binding IsChecked, ElementName=DrawAoiButton, Mode=TwoWay}"
                        Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
                     <Border Background="White" BorderBrush="Gray" BorderThickness="1" Padding="2">
                         <StackPanel Orientation="Vertical">
@@ -219,7 +218,7 @@
         <Expander Grid.Row="3" IsExpanded="False" Margin="0,0,0,4">
             <Expander.Header>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Date range (optional)"/>
+                    <TextBlock Text="Date range (optional)" Foreground="White"/>
                     <Button Content="?" Command="{Binding OpenDocsCommand}" CommandParameter="search-and-results"
                             Width="18" Height="18" Padding="0" FontSize="10" Margin="4,0,0,0" Opacity="0.7"
                             ToolTip="Help: Search &amp; Results"/>
@@ -380,10 +379,9 @@
                         Visibility="{Binding HasNextPage, Converter={StaticResource BoolToVis}}"/>
             </StackPanel>
             <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
-                <ToggleButton x:Name="ParallelDownloadsButton" Content="Parallel Downloads..." Padding="6,2"
+                <Button x:Name="ParallelDownloadsButton" Content="Parallel Downloads..." Click="ParallelDownloadsButton_Click" Padding="6,2"
                         ToolTip="Select number of parallel downloads (cores/threads). Default: 75%."/>
                 <Popup x:Name="ParallelDownloadsPopup" PlacementTarget="{Binding ElementName=ParallelDownloadsButton}"
-                       IsOpen="{Binding IsChecked, ElementName=ParallelDownloadsButton, Mode=TwoWay}"
                        Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
                     <Border Background="White" BorderBrush="Gray" BorderThickness="1" Padding="2">
                         <ListBox ItemsSource="{Binding ThreadOptions}" DisplayMemberPath="Label"
