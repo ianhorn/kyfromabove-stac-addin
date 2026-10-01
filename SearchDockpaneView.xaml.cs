@@ -202,16 +202,22 @@ namespace KyFromAboveSTAC
             _openJsonRow = null;
         }
 
-        // "Parallel Downloads" is a fixed-label dropdown button (ToggleButton + Popup/ListBox)
-        // rather than a normal ComboBox, so its text doesn't change to show the current selection.
-        // Popup.IsOpen is bound directly to the ToggleButton's IsChecked (two-way), so clicking the
-        // button toggles it open/closed like a real dropdown, and an outside-click light-dismiss
-        // (StaysOpen="False") correctly resets the button back to unchecked instead of leaving it
-        // looking "stuck" -- the previous Button+Click-only-sets-IsOpen=true version never did.
+        // "Parallel Downloads" and "Draw..." are fixed-label dropdown buttons (Button + Popup/ListBox)
+        // rather than a normal ComboBox, so their text doesn't change to show the current selection.
+        // A plain Button here (not ToggleButton) because Pro skins Button automatically to match the
+        // rest of the panel, but has no equivalent skin for ToggleButton -- using one made "Draw..."
+        // visibly lighter than its neighbors. Click toggles Popup.IsOpen directly off the current
+        // value (not unconditionally to true), so clicking again while open closes it, and an
+        // outside-click light-dismiss (StaysOpen="False") closes it without leaving any stale state
+        // for the next click to fight with.
+        private void ParallelDownloadsButton_Click(object sender, RoutedEventArgs e) => ParallelDownloadsPopup.IsOpen = !ParallelDownloadsPopup.IsOpen;
+
         private void ParallelDownloadsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ParallelDownloadsPopup.IsOpen = false;
         }
+
+        private void DrawAoiButton_Click(object sender, RoutedEventArgs e) => DrawAoiPopup.IsOpen = !DrawAoiPopup.IsOpen;
 
         // Same fixed-label dropdown pattern as above, offering the three Draw* AOI tools;
         // clicking an option runs its command (bound normally) and then closes the popup.
