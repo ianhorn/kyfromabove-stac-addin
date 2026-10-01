@@ -88,6 +88,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <!-- Kentucky outline (Census boundary, simplified) in blue with "STAC" over it; stands in for the "KyFromAbove-STAC"
                  title text. Vector, so it stays sharp at any DPI; colors are fixed and read on both light and dark panels. -->
@@ -99,7 +100,9 @@
                                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="32,15,0,0"/>
                 </Grid>
             </Viewbox>
-            <Button Grid.Column="1" Content="Help" Command="{Binding OpenDocsCommand}" Padding="8,2"
+            <Button Grid.Column="1" Content="Feedback" Command="{Binding FeedbackCommand}" Padding="8,2" Margin="0,0,6,0"
+                    ToolTip="Report a bug, request a feature, or send feedback directly."/>
+            <Button Grid.Column="2" Content="Help" Command="{Binding OpenDocsCommand}" Padding="8,2"
                     ToolTip="Open the full documentation site in your browser."/>
         </Grid>
 

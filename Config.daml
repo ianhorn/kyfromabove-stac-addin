@@ -26,6 +26,7 @@
       <groups>
         <group id="KyFromAbove_Group1" caption="STAC" appearsOnAddInTab="false" keytip="G1">
           <button refID="KyFromAbove_ShowSearchDockpane" size="large" />
+          <button refID="KyFromAbove_FeedbackButton" size="small"/>
         </group>
       </groups>
       <controls>
@@ -35,6 +36,10 @@
           <tooltip heading="STAC Search">
             Open the KyFromAbove STAC search pane to find and download imagery, DEM, and LiDAR data.<disabledText />
           </tooltip>
+        </button>
+        <button id="KyFromAbove_FeedbackButton" caption="Feedback" className="FeedbackButton"
+                loadOnClick="true" smallImage="Images\Feedback16.png" largeImage="Images\Feedback32.png">
+          <tooltip heading="Feedback">Report a bug, request a feature, or send feedback directly.<disabledText /></tooltip>
         </button>
         <tool id="KyFromAbove_DrawPointAoiTool" caption="Draw Point AOI" className="DrawPointAoiTool"
               loadOnClick="true" condition="esri_mapping_mapPane"
