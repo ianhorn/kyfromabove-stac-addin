@@ -15,7 +15,11 @@ time.
   map's spatial reference).
 - A progress dialog reports each step (create dataset, add rasters, define/build overviews) and
   has a **Cancel** button. Cancelling takes effect before the *next* step starts -- it can't
-  interrupt a geoprocessing step that's already running.
+  interrupt a geoprocessing step that's already running. A slow step (building overviews over many
+  or large tiles can take minutes, since it reads pixel data from every COG) logs a line every 15
+  seconds so it doesn't look stalled.
+- The dialog closes itself automatically when the mosaic is created (or you cancel). If a step
+  fails, it stays open with the reason instead of vanishing -- click **Close** to dismiss it.
 
 !!! note "Large batches (100+ tiles)"
     Above 100 mosaic-eligible tiles, **Mosaic All to Map** is disabled outright -- narrow your search

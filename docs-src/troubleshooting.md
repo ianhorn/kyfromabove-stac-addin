@@ -18,14 +18,14 @@ active map, so they need a map view open in the project. Open or create a map, t
 Click **Refresh** next to the dropdown. It also refreshes automatically whenever a map view
 becomes active (opening a map, switching map tabs, opening the project), so this should be rare.
 
-## A dropdown button (Draw, Parallel Downloads) won't close
-
-These are toggle-style dropdown buttons -- click the button again, or click anywhere outside the
-dropdown, to close it. If it seems stuck, make sure you're on the latest build; earlier versions
-had a bug where the button never reset after the popup closed.
-
 ## `git push` fails with "Password authentication is not supported"
 
 GitHub removed password-based Git authentication in 2021. Use a
 [personal access token](https://github.com/settings/tokens) as the password, or authenticate once
 with `gh auth login` (GitHub CLI) and run `gh auth setup-git` so future pushes just work.
+
+## Still stuck?
+
+Click **Feedback** (ribbon or the pane's title row) to report it -- as a GitHub issue, or sent
+directly with no GitHub account needed. Either way, the add-in version, ArcGIS Pro version, and OS
+are attached automatically.
