@@ -26,6 +26,8 @@ errors (`CS1705`), not produce a working add-in for the version you wanted.
 
 ## Download the pre-built add-in
 
+[![Downloads](https://img.shields.io/github/downloads/ianhorn/kyfromabove-stac-addin/total.svg)](https://github.com/ianhorn/kyfromabove-stac-addin/releases)
+
 No Visual Studio or source build required -- download the `.esriAddinX` that matches your ArcGIS
 Pro version, then double-click it (or copy it to `%LocalAppData%\ESRI\ArcGISPro\AssemblyCache`) to
 install it through ArcGIS Pro's normal Add-In Manager flow:
