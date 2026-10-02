@@ -12,7 +12,9 @@ you picked last.
     number of tiles can take a significant amount of time. Continue?") before starting.
 
 A progress dialog shows per-asset status as downloads run, with a **Cancel** button that stops any
-downloads still in progress (already-completed files are kept).
+downloads still in progress (already-completed files are kept). It closes itself automatically once
+at least one file downloads successfully (or you cancel); if every download fails, it stays open so
+you can read why -- click **Close** to dismiss it.
 
 Both raster (COG) and point-cloud (`.laz`/`.las`, etc.) assets can be downloaded this way, even
 though point-clouds can't be added directly to the map. COPC point-cloud results have a **View**
