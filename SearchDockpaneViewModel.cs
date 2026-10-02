@@ -192,6 +192,35 @@ namespace KyFromAboveSTAC
         private static void ShowFeedbackDialog() =>
             new FeedbackDialog { Owner = System.Windows.Application.Current?.MainWindow }.ShowDialog();
 
+        /// <summary>Compares the installed build against the latest published GitHub release -- see
+        /// Services/UpdateCheckService.cs.</summary>
+        public ICommand CheckVersionCommand => new RelayCommand(async () => await OnCheckVersionAsync());
+
+        private static async Task OnCheckVersionAsync()
+        {
+            try
+            {
+                var r = await Services.UpdateCheckService.CheckAsync();
+                if (!r.IsNewerAvailable)
+                {
+                    System.Windows.MessageBox.Show($"You're up to date: KyFromAbove STAC {r.Current} is the latest release.",
+                        "KyFromAbove STAC", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    return;
+                }
+                var open = System.Windows.MessageBox.Show(
+                    $"A newer version is available.\n\nInstalled: {r.Current}\nLatest: {r.Latest}\n\nOpen the release page to download it? " +
+                    "(Close ArcGIS Pro before installing the new .esriAddinX.)",
+                    "KyFromAbove STAC", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Information);
+                if (open == System.Windows.MessageBoxResult.Yes)
+                    Process.Start(new ProcessStartInfo(r.ReleaseUrl) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Couldn't check for a newer version: {ex.Message}\n\nYou can check manually at {Services.UpdateCheckService.ReleasesPage}",
+                    "KyFromAbove STAC", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            }
+        }
+
         #endregion
 
         #region Bound properties

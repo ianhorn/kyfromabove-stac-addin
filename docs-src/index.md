@@ -40,3 +40,10 @@ results, all backed by a standard [STAC API](https://github.com/radiantearth/sta
 
 Click **Feedback** (ribbon or the pane's title row) to report a bug, request a feature, or ask a
 question -- either as a GitHub issue, or sent directly with no GitHub account needed.
+
+## Check version
+
+Click **Check version**, next to Feedback and Help, to compare your installed build against the
+latest published [release](https://github.com/ianhorn/kyfromabove-stac-addin/releases). If a newer
+one is available, it offers to open the release page -- close ArcGIS Pro before installing the new
+`.esriAddinX`.
