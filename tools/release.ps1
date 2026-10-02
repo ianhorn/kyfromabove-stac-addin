@@ -110,12 +110,24 @@ try {
         git worktree add --detach $worktreePath $branch
         if ($LASTEXITCODE -ne 0) { throw "git worktree add failed for $branch" }
 
+        # Stamp Config.daml's AddInInfo version too, so ArcGIS Pro's own Add-In Manager shows the real
+        # version -- cosmetic only, UpdateCheckService compares the assembly version set by /p:Version
+        # above, not this.
+        $damlPath = Join-Path $worktreePath "Config.daml"
+        $daml = Get-Content $damlPath -Raw
+        $stamped = $daml -replace '(<AddInInfo\b[^>]*\bversion=")[^"]*(")', "`${1}$Version.0`$2"
+        if ($stamped -eq $daml) { throw "Could not find AddInInfo version=`"...`" to stamp in $damlPath" }
+        Set-Content $damlPath $stamped -NoNewline
+
         try {
             Push-Location $worktreePath
-            & $msbuild "KyFromAboveSTACAddin.csproj" /t:Restore /v:minimal
+            # /p:Version stamps the compiled assembly's AssemblyVersion/FileVersion with this release's
+            # version, so the in-app "Check version" button (UpdateCheckService) compares against the
+            # right thing instead of whatever version the csproj happened to have checked in.
+            & $msbuild "KyFromAboveSTACAddin.csproj" /t:Restore /p:Version=$Version /v:minimal
             if ($LASTEXITCODE -ne 0) { throw "Restore failed for $branch" }
 
-            & $msbuild "KyFromAboveSTACAddin.csproj" /p:Configuration=Release /v:minimal
+            & $msbuild "KyFromAboveSTACAddin.csproj" /p:Configuration=Release /p:Version=$Version /v:minimal
             if ($LASTEXITCODE -ne 0) { throw "Build failed for $branch" }
         }
         finally {
