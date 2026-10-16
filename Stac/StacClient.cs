@@ -38,6 +38,14 @@ namespace KyFromAboveSTAC.Stac
         /// Mutually exclusive with Bbox (intersects takes precedence).
         /// </summary>
         public string IntersectsGeoJson { get; set; }
+        /// <summary>
+        /// Keep only items with eo:cloud_cover &lt;= this percent (0-100), or that don't report cloud
+        /// cover at all (DEM, LiDAR, radar, most aerial imagery -- cloud cover means nothing for them).
+        /// Sent to the server as a CQL2 filter, but also re-checked on the results in
+        /// SearchDockpaneViewModel (see StacClient.WithinCloudCover): some STAC APIs (e.g. Earth Search)
+        /// accept the filter and then silently ignore it.
+        /// </summary>
+        public double? MaxCloudCover { get; set; }
     }
 
     /// <summary>
@@ -82,7 +90,7 @@ namespace KyFromAboveSTAC.Stac
         /// GeoJSON geometry is provided; otherwise GET /search with bbox.</summary>
         public async Task<StacItemCollection> SearchAsync(StacSearchQuery q, CancellationToken ct = default)
         {
-            if (!string.IsNullOrWhiteSpace(q.IntersectsGeoJson))
+            if (!string.IsNullOrWhiteSpace(q.IntersectsGeoJson) || q.MaxCloudCover.HasValue)
                 return await SearchPostAsync(q, ct).ConfigureAwait(false);
             var url = BuildSearchUrl(q);
             return await GetItemCollectionAsync(url, ct).ConfigureAwait(false);
@@ -129,6 +137,38 @@ namespace KyFromAboveSTAC.Stac
                     writer.WriteStartArray();
                     writer.WriteStringValue(q.FreeText);
                     writer.WriteEndArray();
+                }
+                if (q.MaxCloudCover.HasValue)
+                {
+                    // CQL2 JSON (filter extension): keep items with eo:cloud_cover <= max, OR that
+                    // don't report it at all -- a plain equality/"query" extension filter has no way
+                    // to express "or missing", so items without the property would be dropped.
+                    writer.WriteString("filter-lang", "cql2-json");
+                    writer.WritePropertyName("filter");
+                    writer.WriteStartObject();
+                    writer.WriteString("op", "or");
+                    writer.WritePropertyName("args");
+                    writer.WriteStartArray();
+
+                    writer.WriteStartObject();
+                    writer.WriteString("op", "<=");
+                    writer.WritePropertyName("args");
+                    writer.WriteStartArray();
+                    writer.WriteStartObject(); writer.WriteString("property", "eo:cloud_cover"); writer.WriteEndObject();
+                    writer.WriteNumberValue(q.MaxCloudCover.Value);
+                    writer.WriteEndArray();
+                    writer.WriteEndObject();
+
+                    writer.WriteStartObject();
+                    writer.WriteString("op", "isNull");
+                    writer.WritePropertyName("args");
+                    writer.WriteStartArray();
+                    writer.WriteStartObject(); writer.WriteString("property", "eo:cloud_cover"); writer.WriteEndObject();
+                    writer.WriteEndArray();
+                    writer.WriteEndObject();
+
+                    writer.WriteEndArray();
+                    writer.WriteEndObject();
                 }
                 writer.WriteNumber("limit", Clamp(q.Limit, 1, 10000));
                 writer.WriteEndObject();
@@ -225,6 +265,20 @@ namespace KyFromAboveSTAC.Stac
         }
 
         private static int Clamp(int v, int min, int max) => v < min ? min : (v > max ? max : v);
+
+        /// <summary>
+        /// True unless <paramref name="item"/> reports more cloud cover than <paramref name="maxCloudCover"/>
+        /// allows -- an item that doesn't report eo:cloud_cover at all (DEM, LiDAR, radar, most aerial
+        /// imagery) always passes. Call this on every result regardless of whether the server was asked
+        /// to filter: confirmed against real APIs that some accept a CQL2 filter and silently ignore it
+        /// (e.g. Earth Search), so the server's own answer can't be trusted alone.
+        /// </summary>
+        public static bool WithinCloudCover(StacItem item, double? maxCloudCover)
+        {
+            if (maxCloudCover == null) return true;
+            var value = item?.Properties?.EoCloudCover;
+            return value == null || value <= maxCloudCover.Value;
+        }
 
         public void Dispose() { /* static http is shared; nothing to dispose here */ }
     }

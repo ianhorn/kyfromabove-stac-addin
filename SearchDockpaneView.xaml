@@ -231,17 +231,29 @@
                 </StackPanel>
             </Expander.Header>
             <Grid Margin="0,4,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="0,0,4,0">
+                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Vertical" Margin="0,0,4,0">
                     <TextBlock Text="Start date" Opacity="0.8"/>
                     <DatePicker SelectedDate="{Binding StartDate}"/>
                 </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Vertical">
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Vertical">
                     <TextBlock Text="End date" Opacity="0.8"/>
                     <DatePicker SelectedDate="{Binding EndDate}"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,8,0,0">
+                    <CheckBox Content="Max cloud cover" IsChecked="{Binding MaxCloudCoverEnabled}" VerticalAlignment="Center"
+                              ToolTip="Keep tiles with at most this much cloud cover. Tiles that don't report cloud cover (DEM, LiDAR, radar, most aerial imagery) are kept."/>
+                    <TextBox Text="{Binding MaxCloudCoverPercent, UpdateSourceTrigger=PropertyChanged}" Width="40" Margin="6,0,2,0"
+                             VerticalContentAlignment="Center" IsEnabled="{Binding MaxCloudCoverEnabled}"
+                             ToolTip="0-100"/>
+                    <TextBlock Text="%" VerticalAlignment="Center" Opacity="0.8"/>
                 </StackPanel>
             </Grid>
         </Expander>

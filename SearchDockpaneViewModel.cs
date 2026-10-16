@@ -334,6 +334,24 @@ namespace KyFromAboveSTAC
             set => SetProperty(ref _endDate, value, () => EndDate);
         }
 
+        private bool _maxCloudCoverEnabled;
+        public bool MaxCloudCoverEnabled
+        {
+            get => _maxCloudCoverEnabled;
+            set => SetProperty(ref _maxCloudCoverEnabled, value, () => MaxCloudCoverEnabled);
+        }
+
+        private int _maxCloudCoverPercent = 20;
+        /// <summary>0-100. Only applied when <see cref="MaxCloudCoverEnabled"/> is checked.</summary>
+        public int MaxCloudCoverPercent
+        {
+            get => _maxCloudCoverPercent;
+            set => SetProperty(ref _maxCloudCoverPercent, Math.Max(0, Math.Min(100, value)), () => MaxCloudCoverPercent);
+        }
+
+        /// <summary>The cloud-cover cap to send/filter with, or null when the checkbox is off.</summary>
+        private double? EffectiveMaxCloudCover => MaxCloudCoverEnabled ? (double?)MaxCloudCoverPercent : null;
+
         private string _aoiText;
         public string AoiText
         {
@@ -1696,7 +1714,8 @@ namespace KyFromAboveSTAC
                             StartDate = StartDate,
                             EndDate = EndDate,
                             FreeText = FreeText,
-                            Limit = Limit
+                            Limit = Limit,
+                            MaxCloudCover = EffectiveMaxCloudCover
                         };
                         page = await source.Client.SearchAsync(query, ct);
                     }
@@ -1717,8 +1736,13 @@ namespace KyFromAboveSTAC
 
                     if (page?.Features != null)
                     {
+                        // Re-checked here regardless of whether the server was asked to filter: some STAC
+                        // APIs accept the CQL2 cloud-cover filter and silently ignore it (confirmed against
+                        // Earth Search) -- see StacClient.WithinCloudCover.
+                        var maxCloud = EffectiveMaxCloudCover;
                         foreach (var f in page.Features)
                         {
+                            if (!Stac.StacClient.WithinCloudCover(f, maxCloud)) continue;
                             var colVM = Collections.FirstOrDefault(c => c.Source == source && c.Id == f.Collection)
                                         ?? Collections.FirstOrDefault(c => c.Id == f.Collection);
                             Results.Add(new ResultItemViewModel(f, colVM?.Collection, loadThumbnail: !ThumbnailsDisabled));

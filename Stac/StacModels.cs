@@ -42,6 +42,9 @@ namespace KyFromAboveSTAC.Stac
         [JsonPropertyName("proj:bbox")] public double[] ProjBbox { get; set; }
         [JsonPropertyName("proj:shape")] public int[] ProjShape { get; set; }
         [JsonPropertyName("instruments")] public List<string> Instruments { get; set; }
+        /// <summary>Percent cloud cover (0-100), per the STAC EO extension. Absent for most KyFromAbove
+        /// items (orthoimagery/DEM/LiDAR don't report it) and for any non-optical source.</summary>
+        [JsonPropertyName("eo:cloud_cover")] public double? EoCloudCover { get; set; }
 
         /// <summary>Any additional properties not explicitly mapped.</summary>
         [JsonExtensionData]
