@@ -6,8 +6,14 @@
 |---|---|
 | **Collections** | See [Collections & Sources](collections-and-sources.md). |
 | **Area of interest** | See [Area of Interest](area-of-interest.md). |
-| **Date range (optional)** | Collapsed by default; expand to filter by start/end date. |
+| **Date range (optional)** | Collapsed by default; expand to filter by start/end date, and (below the dates) by **Max cloud cover** -- a percentage (default 20%). Tiles that don't report cloud cover (DEM, LiDAR, radar, most aerial imagery) are always kept. |
 | **Limit** | 50 / 100 / 200 / 500 preset dropdown, or **Custom** for any value. Defaults to 10. |
+
+!!! note "Max cloud cover and Bring Your Own API"
+    The cloud-cover cap is re-checked on the results themselves, not just sent as a request filter --
+    some STAC APIs accept the filter and silently ignore it. KyFromAbove's own imagery doesn't report
+    cloud cover at all, so this filter mainly matters when searching another API added via
+    [Bring Your Own API](collections-and-sources.md#bring-your-own-api).
 
 !!! note "Thumbnails and large limits"
     When **Limit** is above 50, thumbnail loading is automatically disabled for that search to avoid
