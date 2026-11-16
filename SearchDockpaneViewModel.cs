@@ -1138,6 +1138,10 @@ namespace KyFromAboveSTAC
                             ext = ".ipynb";
                             script = BuildNotebookDownloadScript(assets, destFolder, concurrency);
                             break;
+                        case ExportScriptFormat.R:
+                            ext = ".R";
+                            script = BuildRDownloadScript(assets, destFolder);
+                            break;
                         case ExportScriptFormat.PowerShell:
                             ext = ".ps1";
                             script = BuildPowerShellDownloadScript(assets, destFolder, concurrency);
@@ -1187,6 +1191,7 @@ namespace KyFromAboveSTAC
 
         private static string EscapePs(string s) => (s ?? "").Replace("'", "''");
         private static string EscapePy(string s) => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+        private static string EscapeR(string s) => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
         private static string EscapeSh(string s) => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("$", "\\$").Replace("`", "\\`");
 
         /// <summary>
@@ -1249,10 +1254,60 @@ namespace KyFromAboveSTAC
             lines.Add("Write-Host \"\"");
             lines.Add("Write-Host \"Done: $ok succeeded, $fail failed -> $DestFolder\"");
             return string.Join("\r\n", lines);
-                        case ExportScriptFormat.R:
-                            ext = ".R";
-                            script = BuildRDownloadScript(assets, destFolder);
-                            break;
+        }
+
+        /// <summary>
+        /// Build a stand-alone R download script using only base R (download.file), so no packages
+        /// need installing. Downloads run one after another and go to a ".part" file first, so an
+        /// interrupted run never leaves a truncated file that looks complete.
+        /// </summary>
+        private static string BuildRDownloadScript(List<(string Url, string RelPath)> assets, string destFolder)
+        {
+            var lines = new List<string>
+            {
+                "#!/usr/bin/env Rscript",
+                "# KyFromAbove-STAC stand-alone download script (base R, no packages needed)",
+                $"# Generated {DateTime.Now:yyyy-MM-dd HH:mm} -- {assets.Count} asset(s).",
+                "# Edit dest_folder below if needed, then run: Rscript \"<this file>\"  (or source() it in R / RStudio)",
+                "",
+                $"dest_folder <- \"{EscapeR(destFolder)}\"",
+                "",
+                "options(timeout = max(3600, getOption(\"timeout\")))  # large files need more than the 60 s default",
+                "",
+                "assets <- list("
+            };
+            for (int i = 0; i < assets.Count; i++)
+            {
+                var a = assets[i];
+                lines.Add($"  c(url = \"{EscapeR(a.Url)}\", rel_path = \"{EscapeR(a.RelPath)}\"){(i < assets.Count - 1 ? "," : "")}");
+            }
+            lines.Add(")");
+            lines.Add("");
+            lines.Add("fetch <- function(url, rel_path) {");
+            lines.Add("  dest <- file.path(dest_folder, rel_path)");
+            lines.Add("  dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)");
+            lines.Add("  part <- paste0(dest, \".part\")");
+            lines.Add("  tryCatch({");
+            lines.Add("    status <- suppressWarnings(download.file(url, part, mode = \"wb\", quiet = TRUE))");
+            lines.Add("    if (status != 0) stop(\"download.file returned \", status)");
+            lines.Add("    file.rename(part, dest)");
+            lines.Add("    paste(\"OK  \", rel_path)");
+            lines.Add("  }, error = function(e) {");
+            lines.Add("    if (file.exists(part)) file.remove(part)");
+            lines.Add("    paste0(\"FAIL \", rel_path, \": \", conditionMessage(e))");
+            lines.Add("  })");
+            lines.Add("}");
+            lines.Add("");
+            lines.Add("dir.create(dest_folder, recursive = TRUE, showWarnings = FALSE)");
+            lines.Add("results <- character(0)");
+            lines.Add("for (a in assets) {");
+            lines.Add("  result <- fetch(a[[\"url\"]], a[[\"rel_path\"]])");
+            lines.Add("  cat(result, \"\\n\", sep = \"\")");
+            lines.Add("  results <- c(results, result)");
+            lines.Add("}");
+            lines.Add("ok <- sum(startsWith(results, \"OK\"))");
+            lines.Add("cat(sprintf(\"\\nDone: %d succeeded, %d failed -> %s\\n\", ok, length(results) - ok, dest_folder))");
+            return string.Join("\n", lines);
         }
 
         /// <summary>Build a stand-alone Python 3 download script using only the standard library (no "requests" dependency).</summary>
@@ -1302,7 +1357,6 @@ namespace KyFromAboveSTAC
             lines.Add("                ok += 1");
             lines.Add("            else:");
             lines.Add("                fail += 1");
-        private static string EscapeR(string s) => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
             lines.Add("    print(f\"\\nDone: {ok} succeeded, {fail} failed -> {DEST_FOLDER}\")");
             lines.Add("");
             lines.Add("");
@@ -1367,60 +1421,6 @@ namespace KyFromAboveSTAC
                 "        if result.startswith(\"OK\"):",
                 "            ok += 1",
                 "        else:",
-        /// <summary>
-        /// Build a stand-alone R download script using only base R (download.file), so no packages
-        /// need installing. Downloads run one after another and go to a ".part" file first, so an
-        /// interrupted run never leaves a truncated file that looks complete.
-        /// </summary>
-        private static string BuildRDownloadScript(List<(string Url, string RelPath)> assets, string destFolder)
-        {
-            var lines = new List<string>
-            {
-                "#!/usr/bin/env Rscript",
-                "# KyFromAbove-STAC stand-alone download script (base R, no packages needed)",
-                $"# Generated {DateTime.Now:yyyy-MM-dd HH:mm} -- {assets.Count} asset(s).",
-                "# Edit dest_folder below if needed, then run: Rscript \"<this file>\"  (or source() it in R / RStudio)",
-                "",
-                $"dest_folder <- \"{EscapeR(destFolder)}\"",
-                "",
-                "options(timeout = max(3600, getOption(\"timeout\")))  # large files need more than the 60 s default",
-                "",
-                "assets <- list("
-            };
-            for (int i = 0; i < assets.Count; i++)
-            {
-                var a = assets[i];
-                lines.Add($"  c(url = \"{EscapeR(a.Url)}\", rel_path = \"{EscapeR(a.RelPath)}\"){(i < assets.Count - 1 ? "," : "")}");
-            }
-            lines.Add(")");
-            lines.Add("");
-            lines.Add("fetch <- function(url, rel_path) {");
-            lines.Add("  dest <- file.path(dest_folder, rel_path)");
-            lines.Add("  dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)");
-            lines.Add("  part <- paste0(dest, \".part\")");
-            lines.Add("  tryCatch({");
-            lines.Add("    status <- suppressWarnings(download.file(url, part, mode = \"wb\", quiet = TRUE))");
-            lines.Add("    if (status != 0) stop(\"download.file returned \", status)");
-            lines.Add("    file.rename(part, dest)");
-            lines.Add("    paste(\"OK  \", rel_path)");
-            lines.Add("  }, error = function(e) {");
-            lines.Add("    if (file.exists(part)) file.remove(part)");
-            lines.Add("    paste0(\"FAIL \", rel_path, \": \", conditionMessage(e))");
-            lines.Add("  })");
-            lines.Add("}");
-            lines.Add("");
-            lines.Add("dir.create(dest_folder, recursive = TRUE, showWarnings = FALSE)");
-            lines.Add("results <- character(0)");
-            lines.Add("for (a in assets) {");
-            lines.Add("  result <- fetch(a[[\"url\"]], a[[\"rel_path\"]])");
-            lines.Add("  cat(result, \"\\n\", sep = \"\")");
-            lines.Add("  results <- c(results, result)");
-            lines.Add("}");
-            lines.Add("ok <- sum(startsWith(results, \"OK\"))");
-            lines.Add("cat(sprintf(\"\\nDone: %d succeeded, %d failed -> %s\\n\", ok, length(results) - ok, dest_folder))");
-            return string.Join("\n", lines);
-        }
-
                 "            fail += 1",
                 "print(f\"\\nDone: {ok} succeeded, {fail} failed -> {DEST_FOLDER}\")"
             };
