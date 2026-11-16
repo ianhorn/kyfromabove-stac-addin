@@ -15,6 +15,7 @@ namespace KyFromAboveSTAC
         Executable,
         Python,
         Notebook,
+        R,
         PowerShell,
         Shell
     }
@@ -26,6 +27,7 @@ namespace KyFromAboveSTAC
             ["Executable"] = "No install needed. Windows only. A single, self-contained .exe -- double-click to run.",
             ["Python"] = "Needs Python 3 on the machine that runs it.",
             ["Notebook"] = "Runs in Jupyter/JupyterLab, VS Code's notebook viewer, or Google Colab.",
+            ["R"] = "Needs R (base R only -- no packages to install). Run with Rscript, or open in RStudio.",
             ["PowerShell"] = "Windows only, no install needed.",
             ["Shell"] = "macOS/Linux/WSL. Needs curl."
         };
@@ -57,6 +59,7 @@ namespace KyFromAboveSTAC
                 {
                     "Python" => ExportScriptFormat.Python,
                     "Notebook" => ExportScriptFormat.Notebook,
+                    "R" => ExportScriptFormat.R,
                     "PowerShell" => ExportScriptFormat.PowerShell,
                     "Shell" => ExportScriptFormat.Shell,
                     _ => ExportScriptFormat.Executable

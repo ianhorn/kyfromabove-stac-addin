@@ -58,7 +58,7 @@ another machine, or scheduling for later.
 
 Choose an **output type** -- a Python script (`.py`, needs Python 3, selected by default), a
 Jupyter notebook (`.ipynb`, runs in Jupyter/JupyterLab, VS Code's notebook viewer, or Google
-Colab), a self-contained executable (`.exe`, no dependencies), a PowerShell script (`.ps1`), or a
+Colab), an R script (`.R`, needs R -- base R only, no packages), a self-contained executable (`.exe`, no dependencies), a PowerShell script (`.ps1`), or a
 shell script (`.sh`) -- and where the downloads (and the generated file itself) should be saved,
 then click **Export**.
 
